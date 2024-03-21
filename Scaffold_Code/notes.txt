@@ -7,13 +7,15 @@ Block consists of:
     previous_hash
 
 Node contains:
+    wallet --> private key, public key, bcc coins
     state
     staking of every code
 
 Transaction:
     sender_address
     receiver_address
-    type_of_transaction
+    type_of_transaction --> send coins: contains amount of coins and public key (address) of reciever, signature with private key, charged an extra 3% fee
+                            send message: contains string to send, public key of reciever, fee 1BCC per character of the string
     amount
     message
     nonce --> counter that increases by 1 for every outsourcing transaction, 
