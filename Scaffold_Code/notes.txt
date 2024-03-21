@@ -1,0 +1,27 @@
+Block consists of:
+    index
+    timestamp
+    transactions
+    validator
+    current_hash
+    previous_hash
+
+Node contains:
+    state
+    staking of every code
+
+Transaction:
+    sender_address
+    receiver_address
+    type_of_transaction
+    amount
+    message
+    nonce --> counter that increases by 1 for every outsourcing transaction, 
+              to prevent replay attacks by maliscious nodes
+    transaction_id
+    signature
+
+Proof of Stake:
+    Every node stakes an amount of money from which the chance of it being the next validator
+    is calculated by the (amount of money staked)/(total amount from all nodes)
+    
