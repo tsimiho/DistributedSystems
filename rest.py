@@ -17,7 +17,7 @@ blockchain = blockchain.Blockchain()
 
 # Create an instance of the node class
 # Define the node object of the current node.
-my_node = Node(0,0)
+my_node = Node(0,0,blockchain)
 # Define the number of nodes in the network.
 # .......................................................................................
 
@@ -33,7 +33,20 @@ def start_page():
 @app.route("/blocks/get", methods=["GET"])
 def get_blocks():
     blocks = blockchain.blocks
-    response = {"blocks": blocks}
+    blocks_json = []
+    for block in blocks:
+        block_dict = {
+            "index": block.index,
+            "previous_hash": block.previous_hash,
+            "timestamp": block.timestamp,
+            "listOfTransactions": [vars(tx) for tx in block.listOfTransactions],
+            "nonce": block.nonce,
+            "validator": block.validator,
+            "current_hash": block.current_hash,
+            "capacity": block.capacity
+        }
+        blocks_json.append(block_dict)
+    response = {"blocks": blocks_json}
     return jsonify(response), 200
 
 # page to create transaction

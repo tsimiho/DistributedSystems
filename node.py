@@ -15,10 +15,10 @@ from wallet import Wallet
 
 
 class Node:
-    def __init__(self, id, number_of_nodes):
+    def __init__(self, id, number_of_nodes, blockchain):
         self.NBC = 0
         self.id = id
-        self.chain = blockchain.Blockchain()
+        self.chain = blockchain
         self.current_id_count = 0
         self.wallet = Wallet()
         self.ring = []
