@@ -12,13 +12,16 @@ import wallet
 
 
 class node:
-    def __init__(self, id=None):
+    def __init__(self, id, number_of_nodes):
         self.NBC = 0
         self.id = id
         self.chain = blockchain.Blockchain()
         self.current_id_count = 0
-        self.wallet = wallet.Wallet()
-        self.node_ring = {}  # or []
+        self.wallet = None
+        self.ring = []
+        self.nonce = 0
+        self.stake = 0
+        self.number_of_nodes = number_of_nodes
 
     def create_new_block(self):
         new_block = block.Block(self.chain.get_latest_block().hash)
@@ -29,10 +32,15 @@ class node:
         self.wallet = wallet.Wallet()
 
     def create_transaction(
-        self, sender_address, receiver_address, type_of_transaction, signature
+        self, sender_address, receiver_address, type_of_transaction, amount, message
     ):
         transaction = transaction.Transaction(
-            sender_address, receiver_address, type_of_transaction
+            sender_address,
+            receiver_address,
+            type_of_transaction,
+            amount,
+            message,
+            self.nonce,
         )
         signature = transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction, signature)
@@ -73,7 +81,8 @@ class node:
         else:
             print("Wrong type of transaction.")
             return False
-        # ...
+
+        # todo: staking
 
     def mint_block(self):
         pass
@@ -88,10 +97,24 @@ class node:
     def stake(self, amount):
         pass
 
-    def register_node_to_ring(self):
+    def register_node_to_ring(self, ip_addr, pubkey, port, node_id, stake, balance):
+        node_info = {
+            "ip_addr": ip_addr,
+            "pubkey": pubkey,
+            "port": port,
+            "id": node_id,
+            "stake": stake,
+            "balance": 0,
+        }
+        self.node[pubkey] = node_info
+        if len(self.node_ring.items()) > 1:
+            self.create_transaction(self.wallet.public_key, pubkey, "coins", 1000)
+
+        if len(self.node_ring.items()) == self.number_of_nodes:
+            self.broadcast_ring()
+
+    def broadcast_ring(self):
         pass
-        # add this node to the ring, only the bootstrap node can add a node to the ring after checking his wallet and ip:port address
-        # bottstrap node informs all other nodes and gives the request node an id and 100 NBCs
 
     def add_transaction_to_block(self):
         pass
