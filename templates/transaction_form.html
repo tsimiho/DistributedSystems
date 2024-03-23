@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Transaction</title>
+</head>
+<body>
+    <h1>Create a Transaction</h1>
+    <form action="/transaction/create_transaction" method="post">
+        <label for="sender">Sender Public Key:</label><br>
+        <input type="text" id="sender" name="sender"><br>
+
+        <label for="receiver">Receiver Public Key:</label><br>
+        <input type="text" id="receiver" name="receiver"><br>
+
+        <label for="amount">Amount:</label><br>
+        <input type="text" id="amount" name="amount"><br>
+
+        <label for="message">Message:</label><br>
+        <input type="text" id="message" name="message"><br>
+
+        <label for="type">Type of Transaction:</label><br>
+        <input type="text" id="type" name="type"><br>
+
+        <input type="submit" value="Submit">
+    </form>
+</body>
+</html>

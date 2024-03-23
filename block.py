@@ -8,14 +8,15 @@ import blockchain
 
 
 class Block:
-    def __init__(self, index, validator, previous_hash):
+    def __init__(self, index, previous_hash):
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = time.time()
-        self.transactions = []
+        self.listOfTransactions = []
         self.nonce = 0
-        self.validator = validator
+        self.validator = None
         self.current_hash = self.myHash()
+        self.capacity = 10
 
     def myHash(self):
         block_string = json.dumps(
@@ -25,4 +26,10 @@ class Block:
 
     def add_transaction(self, transaction):
         self.listOfTransactions.append(transaction)
-        self.hash = self.calculate_hash()
+        # self.hash = self.calculate_hash()
+
+        # Check if the block is full
+        if len(self.listOfTransactions) == self.capacity:
+            return "mine"
+
+        return "not full"

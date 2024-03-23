@@ -1,40 +1,56 @@
 import base64
+from collections import deque
+from copy import deepcopy
 import json
 
 from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
+from threading import Lock, Thread
 
 import block
 import blockchain
-import transaction
-import wallet
+from transaction import Transaction
+from wallet import Wallet
 
 
-class node:
+class Node:
     def __init__(self, id, number_of_nodes):
         self.NBC = 0
         self.id = id
         self.chain = blockchain.Blockchain()
         self.current_id_count = 0
-        self.wallet = None
+        self.wallet = Wallet()
         self.ring = []
         self.nonce = 0
         self.stake = 0
+        self.current_block = None
         self.number_of_nodes = number_of_nodes
+        self.blocks_to_confirm = deque()
+        self.filter_lock = Lock()
+        self.chain_lock = Lock()
+        self.block_lock = Lock()
 
     def create_new_block(self):
-        new_block = block.Block(self.chain.get_latest_block().hash)
-        self.chain.add_block(new_block)
-        return new_block
+        if len(self.chain.blocks) == 0:
+            # Here, the genesis block is created.
+            new_idx = 0
+            previous_hash = 1
+            self.current_block = block.Block(new_idx, previous_hash)
+        else:
+            # They will be updated in mining.
+            self.current_block = block.Block(None, None)
+        self.chain.add_block_to_chain(self.current_block)
 
-    def generate_wallet(self):
-        self.wallet = wallet.Wallet()
+        return self.current_block
+
+    # def generate_wallet(self):
+    #     self.wallet = wallet.Wallet()
 
     def create_transaction(
         self, sender_address, receiver_address, type_of_transaction, amount, message
     ):
-        transaction = transaction.Transaction(
+        transaction = Transaction(
             sender_address,
             receiver_address,
             type_of_transaction,
@@ -44,10 +60,8 @@ class node:
         )
         signature = transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction, signature)
-        if len(self.transactions) == self.capacity:
-            self.mint_block()
-            self.transactions = []
-        return transaction
+    
+        return True
 
     def sign_transaction(self, transaction):
         signer = PKCS1_v1_5.new(
@@ -60,7 +74,8 @@ class node:
     def broadcast_transaction(self, transaction, signature):
         # data = transaction.to_dict()
         # data["signature"] = signature.decode()
-        pass
+        return self.add_transaction_to_block(transaction)
+
 
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction.sender_address))
@@ -84,7 +99,8 @@ class node:
 
         # todo: staking
 
-    def mint_block(self):
+    def mine_block(self):
+        # implement the proof of stake
         pass
 
     def validate_block(self):
@@ -115,9 +131,54 @@ class node:
 
     def broadcast_ring(self):
         pass
+    
+    # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
+    def add_transaction_to_block(self,transaction):
+        # Add the transaction in node's wallet, if it is the recepient or the sender
+        if (transaction.receiver_address == self.wallet.public_key) or (transaction.sender_address == self.wallet.public_key):
+            self.wallet.transactions.append(transaction)
 
-    def add_transaction_to_block(self):
-        pass
+        # Update the balance of the recipient and the sender.
+        for node in self.ring:
+            if node['public_key'] == transaction.sender_address:
+                node['balance'] -= transaction.amount
+            if node['public_key'] == transaction.receiver_address:
+                node['balance'] += transaction.amount
+
+        # If the chain contains only the genesis block, a new block
+        # is created. In other cases, the block is created after mining.
+        if self.current_block is None:
+            self.current_block = self.create_new_block()
+
+        self.block_lock.acquire()
+        if self.current_block.add_transaction(transaction)=="mine":
+            # Mining procedure includes:
+            # - add the current block in the queue of unconfirmed blocks.
+            # - wait until the thread gets the lock.
+            # - check that the queue is not empty.
+            # - mine the first block of the queue.
+            # - if mining succeeds, broadcast the mined block.
+            # - if mining fails, put the block back in the queue and wait
+            #   for the lock.
+
+            # Update previous hash and index in case of insertions in the chain
+            self.blocks_to_confirm.append(deepcopy(self.current_block))
+            self.current_block = self.create_new_block()
+            self.block_lock.release()
+            while True:
+                with self.filter_lock:
+                    if (self.blocks_to_confirm):
+                        mined_block = self.blocks_to_confirm.popleft()
+                        mining_result = self.mine_block(mined_block)
+                        if (mining_result):
+                            break
+                        else:
+                            self.blocks_to_confirm.appendleft(mined_block)
+                    else:
+                        return
+            self.broadcast_block(mined_block)
+        else:
+            self.block_lock.release()
         # if enough transactions  mine
 
     def broadcast_block(self):

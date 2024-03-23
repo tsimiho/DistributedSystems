@@ -4,7 +4,7 @@ from flask_cors import CORS
 
 import block
 import blockchain
-import node
+from node import Node
 import transaction
 import wallet
 
@@ -15,23 +15,61 @@ app = Flask(__name__)
 CORS(app)
 blockchain = blockchain.Blockchain()
 
-
+# Create an instance of the node class
+# Define the node object of the current node.
+my_node = Node(0,0)
+# Define the number of nodes in the network.
 # .......................................................................................
 
 
-# get all transactions in the blockchain
+# Starting page
+@app.route("/", methods=["GET"])
+def start_page():
+    button_blocks = '<form action="/blocks/get" method="get"><button type="submit">View Blocks</button></form>'
+    button_create_trans = '<form action="/transaction" method="get"><button type="submit">Create Transaction</button></form>'
+    return "Blockchain Application" + button_blocks + button_create_trans
 
-
-@app.route("/transactions/get", methods=["GET"])
-def get_transactions():
-    transactions = blockchain.transactions
-
-    response = {"transactions": transactions}
+# get all blocks in the blockchain
+@app.route("/blocks/get", methods=["GET"])
+def get_blocks():
+    blocks = blockchain.blocks
+    response = {"blocks": blocks}
     return jsonify(response), 200
 
+# page to create transaction
+@app.route("/transaction/", methods=["GET"])
+def transaction_page():
+    return render_template('transaction_form.html')
+
+# endpoint to create transaction
+@app.route('/transaction/create_transaction', methods=['POST'])
+def create_transaction():
+    # Get input arguments: 
+    # id of the sender node 
+    # id of the receiver node 
+    # the amount of NBCs to send
+    # the message to send
+    # the type of transaction
+    sender_public_key = int(request.form.get('sender'))
+    receiver_public_key = int(request.form.get('receiver'))
+    amount = int(request.form.get('amount'))
+    message = str(request.form.get('message'))
+    type_of_transaction = int(request.form.get('type')) 
+
+    if my_node.create_transaction(sender_public_key, receiver_public_key, type_of_transaction, amount, message):
+        return jsonify({'message': 'The transaction was successful.', 'balance': my_node.wallet.get_balance()}), 200
+    else:
+        return jsonify({'message': 'Not enough NBCs.', 'balance': my_node.wallet.get_balance()}), 400
+    # return str(sender_public_key) + str(receiver_public_key) + str(type_of_transaction) + str(amount) + str(message)
+
+# get all transactions in specific block
+@app.route("/blocks/transactions/get", methods=["GET"])
+def get_transactions():
+    blocks = blockchain.blocks
+    response = {"blocks": blocks}
+    return jsonify(response), 200
 
 # run it once fore every node
-
 if __name__ == "__main__":
     from argparse import ArgumentParser
 

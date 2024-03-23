@@ -1,3 +1,6 @@
+Run rest with: python rest.py 
+Runs in localhost:5000
+
 Block consists of:
     index
     timestamp
