@@ -23,7 +23,7 @@ class Node:
         self.chain = blockchain
         self.current_id_count = 0
         self.wallet = Wallet()
-        self.ring = []
+        self.ring = [self]
         self.nonce = 0
         self.stake = 0
         self.current_block = None
@@ -32,7 +32,6 @@ class Node:
         self.filter_lock = Lock()
         self.chain_lock = Lock()
         self.block_lock = Lock()
-        self.transactions = []
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
@@ -43,7 +42,6 @@ class Node:
         else:
             # They will be updated in mining.
             self.current_block = Block(None, None)
-        self.chain.add_block_to_chain(self.current_block)
 
         return self.current_block
 
@@ -110,16 +108,19 @@ class Node:
         return selected_validator_pubkey
 
     def mine_block(self):
+        print("Mine block")
         prev_hash = self.chain.blocks[-1].current_hash
         validator_key = self.lottery(prev_hash)
-        if self.wallet.public_key == validator_key:
-            index = len(self.blockchain.blocks)
-            block = Block(index, prev_hash)
-            self.transactions = []
-            self.chain.add_block_to_chain(block)
-            if self.validate_block(block):
-                self.broadcast_block(block, self.chain.blocks[-2])
+        print(validator_key)
+        # if self.wallet.public_key == validator_key:
+        #     index = len(self.blockchain.blocks)
+        #     block = Block(index, prev_hash)
+        #     self.transactions = []
+        #     self.chain.add_block_to_chain(block)
+        #     if self.validate_block(block):
+        #         self.broadcast_block(block)
 
+    # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block, prev_block):
         if (block.validator != self.lottery(prev_block.current_hash)) or (
             block.previous_hash != prev_block.current_hash
@@ -164,13 +165,20 @@ class Node:
             transaction.sender_address == self.wallet.public_key
         ):
             self.wallet.transactions.append(transaction)
-
+        # print(self.ring)
         # Update the balance of the recipient and the sender.
         for node in self.ring:
-            if node["public_key"] == transaction.sender_address:
-                node["balance"] -= transaction.amount
-            if node["public_key"] == transaction.receiver_address:
-                node["balance"] += transaction.amount
+            # print(node.wallet.public_key)
+            print(transaction.type_of_transaction)
+            if node.wallet.public_key == transaction.sender_address:
+                print("Here")
+                if transaction.type_of_transaction == 2:
+                    print("It's a message")
+                    self.wallet.coins -= len(transaction.message)
+                else:
+                    self.wallet.coins -= transaction.amount
+            if node.wallet.public_key == transaction.receiver_address:
+                self.wallet.coins += transaction.amount
 
         # If the chain contains only the genesis block, a new block
         # is created. In other cases, the block is created after mining.
@@ -178,40 +186,41 @@ class Node:
             self.current_block = self.create_new_block()
 
         self.block_lock.acquire()
+        print("Acquired lock")
+        # if enough transactions  mine
         if self.current_block.add_transaction(transaction) == "mine":
-            # Mining procedure includes:
-            # - add the current block in the queue of unconfirmed blocks.
-            # - wait until the thread gets the lock.
-            # - check that the queue is not empty.
-            # - mine the first block of the queue.
-            # - if mining succeeds, broadcast the mined block.
-            # - if mining fails, put the block back in the queue and wait
-            #   for the lock.
+            self.mine_block()
+            self.transactions = []
+        #     # Mining procedure includes:
+        #     # - add the current block in the queue of unconfirmed blocks.
+        #     # - wait until the thread gets the lock.
+        #     # - check that the queue is not empty.
+        #     # - mine the first block of the queue.
+        #     # - if mining succeeds, broadcast the mined block.
+        #     # - if mining fails, put the block back in the queue and wait
+        #     #   for the lock.
 
-            # Update previous hash and index in case of insertions in the chain
-            self.blocks_to_confirm.append(deepcopy(self.current_block))
-            self.current_block = self.create_new_block()
-            self.block_lock.release()
-            while True:
-                with self.filter_lock:
-                    if self.blocks_to_confirm:
-                        mined_block = self.blocks_to_confirm.popleft()
-                        mining_result = self.mine_block(mined_block)
-                        if mining_result:
-                            break
-                        else:
-                            self.blocks_to_confirm.appendleft(mined_block)
-                    else:
-                        return
-            self.broadcast_block(mined_block)
+        #     # Update previous hash and index in case of insertions in the chain
+        #     self.blocks_to_confirm.append(deepcopy(self.current_block))
+        #     self.current_block = self.create_new_block()
+        #     self.block_lock.release()
+        #     while True:
+        #         with self.filter_lock:
+        #             if self.blocks_to_confirm:
+        #                 mined_block = self.blocks_to_confirm.popleft()
+        #                 mining_result = self.mine_block(mined_block)
+        #                 if mining_result:
+        #                     break
+        #                 else:
+        #                     self.blocks_to_confirm.appendleft(mined_block)
+        #             else:
+        #                 return
+        #     self.broadcast_block(mined_block)
         else:
             self.block_lock.release()
-        # if enough transactions  mine
-        if len(self.transactions) == self.capacity:
-            self.mint_block()
-            self.transactions = []
+            
 
-    def broadcast_block(self):
+    def broadcast_block(self, block):
         pass
 
     def validate_proof(self, difficulty="MINING_DIFFICULTY"):

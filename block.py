@@ -16,7 +16,7 @@ class Block:
         self.nonce = 0
         self.validator = None
         self.current_hash = self.myHash()
-        self.capacity = 10
+        self.capacity = 2
 
     def myHash(self):
         block_string = json.dumps(
@@ -30,6 +30,7 @@ class Block:
 
         # Check if the block is full
         if len(self.listOfTransactions) == self.capacity:
+            print("block full")
             return "mine"
 
         return "not full"

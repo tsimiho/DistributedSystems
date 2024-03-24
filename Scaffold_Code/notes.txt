@@ -10,7 +10,7 @@ Block consists of:
     previous_hash
 
 Node contains:
-    wallet --> private key, public key, bcc coins
+    wallet --> private key, public key, bcc coins, list of transactions of node
     state
     staking of every code
 
@@ -30,3 +30,7 @@ Proof of Stake:
     Every node stakes an amount of money from which the chance of it being the next validator
     is calculated by the (amount of money staked)/(total amount from all nodes)
     
+
+Questions
+When we mine_block how will we calculate the amount of coins to be given to the validator?
+

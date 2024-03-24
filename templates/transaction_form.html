@@ -8,20 +8,23 @@
 <body>
     <h1>Create a Transaction</h1>
     <form action="/transaction/create_transaction" method="post">
-        <label for="sender">Sender Public Key:</label><br>
-        <input type="text" id="sender" name="sender"><br>
+        <!-- <label for="sender">Sender Public Key:</label><br>
+        <input type="text" id="sender" name="sender"><br> -->
 
         <label for="receiver">Receiver Public Key:</label><br>
-        <input type="text" id="receiver" name="receiver"><br>
+        <input type="text" id="receiver" name="receiver"><br><br>
 
         <label for="amount">Amount:</label><br>
-        <input type="text" id="amount" name="amount"><br>
+        <input type="text" id="amount" name="amount"><br><br>
 
         <label for="message">Message:</label><br>
-        <input type="text" id="message" name="message"><br>
+        <input type="text" id="message" name="message"><br><br>
 
         <label for="type">Type of Transaction:</label><br>
-        <input type="text" id="type" name="type"><br>
+        <select id="type" name="type">
+            <option value="1">Send coins</option>
+            <option value="2">Send message</option>
+        </select><br><br><br>
 
         <input type="submit" value="Submit">
     </form>

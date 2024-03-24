@@ -65,21 +65,25 @@ def create_transaction():
     # id of the receiver node
     # the amount of NBCs to send
     # the message to send
-    # the type of transaction
-    sender_public_key = int(request.form.get("sender"))
-    receiver_public_key = int(request.form.get("receiver"))
-    amount = int(request.form.get("amount"))
+    # # the type of transaction
+    # sender_public_key = int(request.form.get("sender"))
+    receiver_public_key = str(request.form.get("receiver"))
+    if request.form.get("amount") == '':
+        amount = 0
+    else:
+        amount = int(request.form.get("amount"))
     message = str(request.form.get("message"))
     type_of_transaction = int(request.form.get("type"))
-
+    print("Type of transaction", type_of_transaction)
     if my_node.create_transaction(
-        sender_public_key, receiver_public_key, type_of_transaction, amount, message
+        my_node.wallet.public_key, receiver_public_key, type_of_transaction, amount, message
     ):
         return (
             jsonify(
                 {
                     "message": "The transaction was successful.",
                     "balance": my_node.wallet.get_balance(),
+                    "sender_public_key": my_node.wallet.public_key
                 }
             ),
             200,
