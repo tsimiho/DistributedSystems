@@ -24,7 +24,9 @@ class Wallet:
         key = RSA.generate(2048)
         private_key = key.export_key()
         public_key = key.publickey().export_key()
-        return base64.b64encode(private_key).decode("ascii"), base64.b64encode(public_key).decode("ascii")
-    
+        return base64.b64encode(private_key).decode("ascii"), base64.b64encode(
+            public_key
+        ).decode("ascii")
+
     def get_balance(self):
         return self.coins

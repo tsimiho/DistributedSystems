@@ -1,15 +1,17 @@
 import base64
+import hashlib
+import json
+import random
 from collections import deque
 from copy import deepcopy
-import json
+from threading import Lock, Thread
 
 from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
-from threading import Lock, Thread
 
-import block
 import blockchain
+from block import Block
 from transaction import Transaction
 from wallet import Wallet
 
@@ -30,22 +32,20 @@ class Node:
         self.filter_lock = Lock()
         self.chain_lock = Lock()
         self.block_lock = Lock()
+        self.transactions = []
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
             # Here, the genesis block is created.
             new_idx = 0
             previous_hash = 1
-            self.current_block = block.Block(new_idx, previous_hash)
+            self.current_block = Block(new_idx, previous_hash)
         else:
             # They will be updated in mining.
-            self.current_block = block.Block(None, None)
+            self.current_block = Block(None, None)
         self.chain.add_block_to_chain(self.current_block)
 
         return self.current_block
-
-    # def generate_wallet(self):
-    #     self.wallet = wallet.Wallet()
 
     def create_transaction(
         self, sender_address, receiver_address, type_of_transaction, amount, message
@@ -60,7 +60,7 @@ class Node:
         )
         signature = transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction, signature)
-    
+
         return True
 
     def sign_transaction(self, transaction):
@@ -75,7 +75,6 @@ class Node:
         # data = transaction.to_dict()
         # data["signature"] = signature.decode()
         return self.add_transaction_to_block(transaction)
-
 
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction.sender_address))
@@ -99,16 +98,42 @@ class Node:
 
         # todo: staking
 
-    def mine_block(self):
-        # implement the proof of stake
-        pass
+    def lottery(self, hash):
+        seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
+        random.seed(seed)
+        tickets = []
+        for node_info in self.ring:
+            tickets.extend([node_info["pubkey"]] * node_info["stake"])
+        if not tickets:
+            return None
+        selected_validator_pubkey = random.choice(tickets)
+        return selected_validator_pubkey
 
-    def validate_block(self):
-        pass
+    def mine_block(self):
+        prev_hash = self.chain.blocks[-1].current_hash
+        validator_key = self.lottery(prev_hash)
+        if self.wallet.public_key == validator_key:
+            index = len(self.blockchain.blocks)
+            block = Block(index, prev_hash)
+            self.transactions = []
+            self.chain.add_block_to_chain(block)
+            if self.validate_block(block):
+                self.broadcast_block(block, self.chain.blocks[-2])
+
+    def validate_block(self, block, prev_block):
+        if (block.validator != self.lottery(prev_block.current_hash)) or (
+            block.previous_hash != prev_block.current_hash
+        ):
+            return False
+        return True
 
     def validate_chain(self, chain):
-        # check for the longer chain accroose all nodes
-        pass
+        for i in range(1, len(chain.blocks)):
+            block = chain.blocks[i]
+            prev_block = chain.blocks[i - 1]
+            if not self.validate_block(block, prev_block):
+                return False
+        return True
 
     def stake(self, amount):
         pass
@@ -131,19 +156,21 @@ class Node:
 
     def broadcast_ring(self):
         pass
-    
+
     # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
-    def add_transaction_to_block(self,transaction):
+    def add_transaction_to_block(self, transaction):
         # Add the transaction in node's wallet, if it is the recepient or the sender
-        if (transaction.receiver_address == self.wallet.public_key) or (transaction.sender_address == self.wallet.public_key):
+        if (transaction.receiver_address == self.wallet.public_key) or (
+            transaction.sender_address == self.wallet.public_key
+        ):
             self.wallet.transactions.append(transaction)
 
         # Update the balance of the recipient and the sender.
         for node in self.ring:
-            if node['public_key'] == transaction.sender_address:
-                node['balance'] -= transaction.amount
-            if node['public_key'] == transaction.receiver_address:
-                node['balance'] += transaction.amount
+            if node["public_key"] == transaction.sender_address:
+                node["balance"] -= transaction.amount
+            if node["public_key"] == transaction.receiver_address:
+                node["balance"] += transaction.amount
 
         # If the chain contains only the genesis block, a new block
         # is created. In other cases, the block is created after mining.
@@ -151,7 +178,7 @@ class Node:
             self.current_block = self.create_new_block()
 
         self.block_lock.acquire()
-        if self.current_block.add_transaction(transaction)=="mine":
+        if self.current_block.add_transaction(transaction) == "mine":
             # Mining procedure includes:
             # - add the current block in the queue of unconfirmed blocks.
             # - wait until the thread gets the lock.
@@ -167,10 +194,10 @@ class Node:
             self.block_lock.release()
             while True:
                 with self.filter_lock:
-                    if (self.blocks_to_confirm):
+                    if self.blocks_to_confirm:
                         mined_block = self.blocks_to_confirm.popleft()
                         mining_result = self.mine_block(mined_block)
-                        if (mining_result):
+                        if mining_result:
                             break
                         else:
                             self.blocks_to_confirm.appendleft(mined_block)
@@ -180,6 +207,9 @@ class Node:
         else:
             self.block_lock.release()
         # if enough transactions  mine
+        if len(self.transactions) == self.capacity:
+            self.mint_block()
+            self.transactions = []
 
     def broadcast_block(self):
         pass
