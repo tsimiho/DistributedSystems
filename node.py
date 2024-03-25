@@ -19,7 +19,7 @@ from wallet import Wallet
 
 
 class Node:
-    def __init__(self, id, number_of_nodes, blockchain, ip_address, port, capacity):
+    def __init__(self, id=None, number_of_nodes=None, blockchain=None, ip_address=None, port=None, capacity=None):
         self.NBC = 0
         self.id = id
         self.chain = blockchain
