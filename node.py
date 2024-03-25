@@ -124,12 +124,12 @@ class Node:
         if self.wallet.public_key == validator_key:
             index = len(self.chain.blocks)
             current_hash = self.current_block.current_hash
+            self.chain.add_block_to_chain(self.current_block)
+            if self.validate_block(block):
+                self.broadcast_block(block)
             block = Block(index, current_hash)
             self.transactions = []
             self.current_block = block
-            self.chain.add_block_to_chain(block)
-            if self.validate_block(block):
-                self.broadcast_block(block)
 
     # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block, prev_block):
