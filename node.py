@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import random
+import threading
 from collections import deque
 from copy import deepcopy
 from threading import Lock, Thread
@@ -108,8 +109,8 @@ class Node:
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
         random.seed(seed)
         tickets = []
-        for node_info in self.ring:
-            tickets.extend([node_info["pubkey"]] * node_info["stake"])
+        for _, node in self.ring.items():
+            tickets.extend([node.public.wallet.public_key] * node.stake)
         if not tickets:
             return None
         selected_validator_pubkey = random.choice(tickets)
@@ -168,8 +169,7 @@ class Node:
             self.nonce += 1
         # print(self.ring)
         # Update the balance of the recipient and the sender.
-        for node in self.ring:
-            # print(node.wallet.public_key)
+        for _, node in self.ring.itmes():
             print(transaction.type_of_transaction)
             if node.wallet.public_key == transaction.sender_address:
                 print("Here")
@@ -186,6 +186,8 @@ class Node:
         if self.current_block is None:
             self.current_block = self.create_new_block()
 
+        self.current_block.amount += transaction.amount
+
         self.block_lock.acquire()
         print("Acquired lock")
 
@@ -197,6 +199,8 @@ class Node:
             self.block_lock.release()
 
     def broadcast_transaction(self, transaction):
+        lock = Lock()
+
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
                 url = f"http://{node.ip_address}:{node.port}/validate_transaction"
@@ -204,7 +208,8 @@ class Node:
                     res = requests.post(
                         url, json={"ring": json.dumps(transaction.__dict__)}
                     )
-                    responses.append(res.status_code == 200)
+                    with lock:
+                        responses.append(res.status_code == 200)
                 except Exception as e:
                     print(f"Failed to broadcast transaction: {e}")
 
@@ -220,7 +225,6 @@ class Node:
 
         if all(responses):
             self.add_transaction_to_block(transaction)
-            
 
     def broadcast_block(self, block):
         def thread_target(node, responses):
