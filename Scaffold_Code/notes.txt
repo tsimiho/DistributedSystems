@@ -31,6 +31,20 @@ Proof of Stake:
     is calculated by the (amount of money staked)/(total amount from all nodes)
     
 
+Mine block steps:
+1. Find validator
+2. Validator validates block
+3. Adds block to chain
+4. Broadcasts block to others
+5. Coins added to validator
+
+Create transaction steps:
+1. Node creates transaction
+2. Signs transaction
+3. Broadcasts transaction
+4. Other nodes validate transaction
+5. If all nodes validate it positively node adds it to block
+
 Questions
 When we mine_block how will we calculate the amount of coins to be given to the validator?
 

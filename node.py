@@ -192,31 +192,6 @@ class Node:
         if self.current_block.add_transaction(transaction) == "mine":
             self.mine_block()
             self.transactions = []
-        #     # Mining procedure includes:
-        #     # - add the current block in the queue of unconfirmed blocks.
-        #     # - wait until the thread gets the lock.
-        #     # - check that the queue is not empty.
-        #     # - mine the first block of the queue.
-        #     # - if mining succeeds, broadcast the mined block.
-        #     # - if mining fails, put the block back in the queue and wait
-        #     #   for the lock.
-
-        #     # Update previous hash and index in case of insertions in the chain
-        #     self.blocks_to_confirm.append(deepcopy(self.current_block))
-        #     self.current_block = self.create_new_block()
-        #     self.block_lock.release()
-        #     while True:
-        #         with self.filter_lock:
-        #             if self.blocks_to_confirm:
-        #                 mined_block = self.blocks_to_confirm.popleft()
-        #                 mining_result = self.mine_block(mined_block)
-        #                 if mining_result:
-        #                     break
-        #                 else:
-        #                     self.blocks_to_confirm.appendleft(mined_block)
-        #             else:
-        #                 return
-        #     self.broadcast_block(mined_block)
         else:
             self.block_lock.release()
 
