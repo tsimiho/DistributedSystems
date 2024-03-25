@@ -73,7 +73,7 @@ def create_transaction():
     else:
         amount = int(request.form.get("amount"))
     message = str(request.form.get("message"))
-    type_of_transaction = int(request.form.get("type"))
+    type_of_transaction = str(request.form.get("type"))
     print("Type of transaction", type_of_transaction)
     if my_node.create_transaction(
         my_node.wallet.public_key, receiver_public_key, type_of_transaction, amount, message

@@ -172,7 +172,7 @@ class Node:
             print(transaction.type_of_transaction)
             if node.wallet.public_key == transaction.sender_address:
                 print("Here")
-                if transaction.type_of_transaction == 2:
+                if transaction.type_of_transaction == 'message':
                     print("It's a message")
                     self.wallet.coins -= len(transaction.message)
                 else:
