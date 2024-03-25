@@ -125,8 +125,8 @@ class Node:
             index = len(self.chain.blocks)
             current_hash = self.current_block.current_hash
             self.chain.add_block_to_chain(self.current_block)
-            if self.validate_block(block):
-                self.broadcast_block(block)
+            if self.validate_block(self.current_block):
+                self.broadcast_block(self.current_block)
             block = Block(index, current_hash)
             self.transactions = []
             self.current_block = block
