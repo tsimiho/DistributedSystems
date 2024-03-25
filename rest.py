@@ -1,27 +1,70 @@
 import requests
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+from threading import Lock, Thread
 
 import block
 import blockchain
 import transaction
 import wallet
 from node import Node
+import json
 
-### JUST A BASIC EXAMPLE OF A REST API WITH FLASK
-
-
+total_nodes = 5
 app = Flask(__name__)
 CORS(app)
-blockchain = blockchain.Blockchain()
-
-# Create an instance of the node class
-# Define the node object of the current node.
-my_node = Node(0, 0, blockchain)
-# Define the number of nodes in the network.
+node = Node()
 # .......................................................................................
+# Endpoint to register a new node in the network
+# used only by the starting node and executes the register_node_to_ring function
+@app.route('/add_node', methods=['POST'])
+def add_node():
+    # Get the arguments
+    register_node = request.form.get('register_node')
+    node_id = len(node.ring)
+    register_node.id = node_id
 
+    # Add node in the list of registered nodes.
+    node.register_node_to_ring(register_node)
 
+    # When all nodes are registered, the bootstrap node sends them:
+    # - the current chain
+    # - the ring
+    # - the first transaction
+    if (node_id == total_nodes - 1):
+        for ring_node in node.ring:
+            if ring_node.id != node.id:
+                node.share_chain(ring_node)
+                node.share_ring(ring_node)
+                node.create_transaction(
+                    sender_address=node.public_key,
+                    receiver_address=ring_node.public_key,
+                    type_of_transaction="coins",
+                    amount=100,
+                    message=""
+                )
+
+    return jsonify({'id': node_id})
+
+# Endpoint to validate a transaction from another node
+@app.route('/validate_transaction', methods=['POST'])
+def validate_transaction():
+    new_transaction = request.form.get('transaction')
+    if node.validate_transaction(new_transaction):
+        return jsonify({'message': "Transaction validated"}), 200
+    else:
+        return jsonify({'message': "Something went wrongs"}), 401
+
+# Endpoint to get a block after it has been validated 
+@app.route('/get_block', methods=['POST'])
+def validate_transaction():
+    block = request.form.get('block')
+    if node.chain.add_block_to_chain(block):
+        return jsonify({'message': "Block has been added"}), 200
+    else:
+        return jsonify({'message': "Block hasn't been added"}), 401
+
+##############################################################################################
 # Starting page
 @app.route("/", methods=["GET"])
 def start_page():
@@ -75,15 +118,15 @@ def create_transaction():
     message = str(request.form.get("message"))
     type_of_transaction = str(request.form.get("type"))
     print("Type of transaction", type_of_transaction)
-    if my_node.create_transaction(
-        my_node.wallet.public_key, receiver_public_key, type_of_transaction, amount, message
+    if node.create_transaction(
+        node.wallet.public_key, receiver_public_key, type_of_transaction, amount, message
     ):
         return (
             jsonify(
                 {
                     "message": "The transaction was successful.",
-                    "balance": my_node.wallet.get_balance(),
-                    "sender_public_key": my_node.wallet.public_key
+                    "balance": node.wallet.get_balance(),
+                    "sender_public_key": node.wallet.public_key
                 }
             ),
             200,
@@ -91,7 +134,7 @@ def create_transaction():
     else:
         return (
             jsonify(
-                {"message": "Not enough NBCs.", "balance": my_node.wallet.get_balance()}
+                {"message": "Not enough NBCs.", "balance": node.wallet.get_balance()}
             ),
             400,
         )
@@ -113,8 +156,54 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
         "-p", "--port", default=5000, type=int, help="port to listen on"
+        "-b", default = True, type=bool, help="is it the bootstrap node"
+        # "-id", default = "id0", type=str, help="id of the node"
     )
     args = parser.parse_args()
     port = args.port
+    bootstrap_node = args.b
+    # node_id = args.id
 
-    app.run(host="127.0.0.1", port=port)
+    if bootstrap_node:
+        blockchain = blockchain.Blockchain()
+        # maybe we should create a function that adds the starting node to the ring or check if "id0" then add node to ring
+        node.chain = blockchain
+        node.id = "id0"
+        node.number_of_nodes = 1
+        node.ip_address = "127.0.0.1"
+        node.port = port
+        
+        # Listen in the specified port
+        app.run(host="127.0.0.1", port=port)
+        
+        # create genesis block
+        genesis = node.create_new_block()
+
+        # add first transaction to genesis block
+        # Adds the first and only transaction in the genesis block.
+        first_transaction = transaction.Transaction(
+            sender_address="0", receiver_address=node.wallet.public_key,type_of_transaction="coins", amount=100 * total_nodes, message="")
+        genesis.current_hash = genesis.get_hash()
+        genesis.listOfTransactions.append(first_transaction)
+        node.wallet.transactions.append(first_transaction)
+
+        # Add the genesis block in the chain.
+        node.chain.add_block_to_chain(genesis)
+        node.current_block = None 
+    else:
+        def thread_target():
+            url = f"http://127.0.0.1:{node.port}/add_node"
+            try:
+                res = requests.post(
+                    url, json={"register_node": node}
+                )
+                if res.status_code == 200:
+                    print("Node initialized")
+
+                node.id = res.json()['id']
+            except Exception as e:
+                print(f"Failed to broadcast transaction: {e}")
+
+        thread = Thread(target=thread_target, args=())
+        thread.start()
+        app.run(host="127.0.0.1", port=port)
