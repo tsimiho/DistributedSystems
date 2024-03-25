@@ -6,6 +6,7 @@ from collections import deque
 from copy import deepcopy
 from threading import Lock, Thread
 
+import requests
 from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -17,13 +18,13 @@ from wallet import Wallet
 
 
 class Node:
-    def __init__(self, id, number_of_nodes, blockchain):
+    def __init__(self, id, number_of_nodes, blockchain, ip_address, port):
         self.NBC = 0
         self.id = id
         self.chain = blockchain
         self.current_id_count = 0
         self.wallet = Wallet()
-        self.ring = [self]
+        self.ring = {}
         self.nonce = 0
         self.stake = 0
         self.current_block = None
@@ -32,6 +33,8 @@ class Node:
         self.filter_lock = Lock()
         self.chain_lock = Lock()
         self.block_lock = Lock()
+        self.ip_address = ip_address
+        self.port = port
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
@@ -68,11 +71,6 @@ class Node:
         h = SHA256.new(json.dumps(transaction.to_dict(), sort_keys=True).encode())
         signature = signer.sign(h)
         return base64.b64encode(signature).decode()
-
-    def broadcast_transaction(self, transaction, signature):
-        # data = transaction.to_dict()
-        # data["signature"] = signature.decode()
-        return self.add_transaction_to_block(transaction)
 
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction.sender_address))
@@ -126,6 +124,7 @@ class Node:
             block.previous_hash != prev_block.current_hash
         ):
             return False
+        self.blo
         return True
 
     def validate_chain(self, chain):
@@ -139,24 +138,15 @@ class Node:
     def stake(self, amount):
         pass
 
-    def register_node_to_ring(self, ip_addr, pubkey, port, node_id, stake, balance):
-        node_info = {
-            "ip_addr": ip_addr,
-            "pubkey": pubkey,
-            "port": port,
-            "id": node_id,
-            "stake": stake,
-            "balance": 0,
-        }
-        self.node[pubkey] = node_info
-        if len(self.node_ring.items()) > 1:
-            self.create_transaction(self.wallet.public_key, pubkey, "coins", 1000)
+    def register_node_to_ring(self, node):
+        self.ring[node.wallet.public_key] = node
+        if len(self.ring.items()) > 1:
+            self.create_transaction(
+                self.wallet.public_key, node.wallet.public_key, "coins", 1000, None
+            )
 
-        if len(self.node_ring.items()) == self.number_of_nodes:
+        if len(self.ring.items()) == self.number_of_nodes:
             self.broadcast_ring()
-
-    def broadcast_ring(self):
-        pass
 
     # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
     def add_transaction_to_block(self, transaction):
@@ -165,6 +155,7 @@ class Node:
             transaction.sender_address == self.wallet.public_key
         ):
             self.wallet.transactions.append(transaction)
+            self.nonce += 1
         # print(self.ring)
         # Update the balance of the recipient and the sender.
         for node in self.ring:
@@ -172,7 +163,7 @@ class Node:
             print(transaction.type_of_transaction)
             if node.wallet.public_key == transaction.sender_address:
                 print("Here")
-                if transaction.type_of_transaction == 'message':
+                if transaction.type_of_transaction == "message":
                     print("It's a message")
                     self.wallet.coins -= len(transaction.message)
                 else:
@@ -218,14 +209,74 @@ class Node:
         #     self.broadcast_block(mined_block)
         else:
             self.block_lock.release()
-            
+
+    def broadcast_transaction(self, transaction):
+        def thread_target(node, responses):
+            if node.wallet.public_key != self.wallet.public_key:
+                url = f"http://{node.ip_address}:{node.port}/broadcast_transaction"
+                try:
+                    res = requests.post(
+                        url, json={"ring": json.dumps(transaction.__dict__)}
+                    )
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to broadcast transaction: {e}")
+
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+        if all(responses):
+            self.add_transaction_to_block(transaction)
 
     def broadcast_block(self, block):
-        pass
+        def thread_target(node, responses):
+            if node.wallet.public_key != self.wallet.public_key:
+                url = f"http://{node.ip_address}:{node.port}/broadcast_block"
+                try:
+                    res = requests.post(url, json={"ring": json.dumps(block.__dict__)})
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to broadcast block: {e}")
 
-    def validate_proof(self, difficulty="MINING_DIFFICULTY"):
-        pass
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
 
-    def resolve_conflicts(self):
-        # resolve correct chain
-        pass
+        for thread in threads:
+            thread.join()
+
+        if all(responses):
+            if self.validate_block(block):
+                pass  # Maybe we need to add the block to the chain here
+
+    def broadcast_ring(self):
+        def thread_target(node, responses):
+            if node.wallet.public_key != self.wallet.public_key:
+                url = f"http://{node.ip_address}:{node.port}/broadcast_block"
+                try:
+                    res = requests.post(
+                        url, json={"ring": json.dumps(self.ring.__dict__)}
+                    )
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to broadcast block: {e}")
+
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()

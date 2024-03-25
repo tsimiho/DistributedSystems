@@ -16,7 +16,6 @@ from Crypto.Signature import PKCS1_v1_5
 
 class Wallet:
     def __init__(self):
-        key = RSA.generate(1024)
         self.private_key, self.public_key = self.generate_wallet()
         self.coins = 10
         self.transactions = []
