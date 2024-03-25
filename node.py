@@ -122,9 +122,11 @@ class Node:
         validator_key = self.lottery(prev_hash)
         print(validator_key)
         if self.wallet.public_key == validator_key:
-            index = len(self.blockchain.blocks)
-            block = Block(index, prev_hash)
+            index = len(self.chain.blocks)
+            current_hash = self.current_block.current_hash
+            block = Block(index, current_hash)
             self.transactions = []
+            self.current_block = block
             self.chain.add_block_to_chain(block)
             if self.validate_block(block):
                 self.broadcast_block(block)
@@ -195,8 +197,8 @@ class Node:
         if self.current_block.add_transaction(transaction) == "mine":
             self.mine_block()
             self.transactions = []
-        else:
-            self.block_lock.release()
+
+        self.block_lock.release()
 
     def broadcast_transaction(self, transaction):
         lock = Lock()
