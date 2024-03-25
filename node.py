@@ -18,7 +18,7 @@ from wallet import Wallet
 
 
 class Node:
-    def __init__(self, id, number_of_nodes, blockchain, ip_address, port):
+    def __init__(self, id, number_of_nodes, blockchain, ip_address, port, capacity):
         self.NBC = 0
         self.id = id
         self.chain = blockchain
@@ -35,6 +35,7 @@ class Node:
         self.block_lock = Lock()
         self.ip_address = ip_address
         self.port = port
+        self.capacity = capacity
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
@@ -79,20 +80,29 @@ class Node:
         return verifier.verify(h, base64.b64decode(transaction.signature))
 
     def validate_transaction(self, transaction):
-        dict = transaction.to_dict()
         verify = self.verify_signature(transaction)
         if verify == False:
             return False
 
-        if dict["type"] == "coins":
-            coins_needed = dict["amount"] + transaction.caclulate_fee()
-        elif dict["type"] == "message":
-            coins_needed = len(dict["message"])
+        if transaction.type_of_transaction == "coins":
+            coins_needed = transaction.amount + transaction.caclulate_fee()
+        elif transaction.type_of_transaction == "message":
+            coins_needed = len(transaction.message)
         else:
             print("Wrong type of transaction.")
             return False
 
-        # todo: staking
+        sender = self.ring[transaction.sender_address]
+        if coins_needed > sender.balance - sender.stake:
+            return False
+        else:
+            sender.balance -= coins_needed
+
+            # maybe we need some checks here (if transaction in another block)
+            self.transactions.append(transaction)
+            if len(self.transactions) == self.capacity:
+                self.mine_block()
+                self.transactions = []
 
     def lottery(self, hash):
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)

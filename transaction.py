@@ -35,17 +35,6 @@ class Transaction:
         block_string = json.dumps(self.__dict__, sort_keys=True)
         return SHA256.new(block_string.encode()).hexdigest()
 
-    def to_dict(self):
-        return {
-            "sender_address": self.sender_address,
-            "receiver_address": self.receiver_address,
-            "amount": self.amount,
-            "type_of_transaction": self.type_of_transaction,
-            "message": self.message,
-            "nonce": self.nonce,
-            "transaction_id": self.transaction_id,
-        }
-
     def sign_transaction(self, private_key):
         message = self.transaction_id.encode()
         key = RSA.importKey(base64.b64decode(private_key))
