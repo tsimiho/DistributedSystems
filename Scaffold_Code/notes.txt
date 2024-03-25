@@ -48,3 +48,6 @@ Create transaction steps:
 Questions
 When we mine_block how will we calculate the amount of coins to be given to the validator?
 
+
+1. Calculate coins of block
+2. Rest endpoints for broadcasts

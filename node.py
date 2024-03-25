@@ -120,13 +120,13 @@ class Node:
         prev_hash = self.chain.blocks[-1].current_hash
         validator_key = self.lottery(prev_hash)
         print(validator_key)
-        # if self.wallet.public_key == validator_key:
-        #     index = len(self.blockchain.blocks)
-        #     block = Block(index, prev_hash)
-        #     self.transactions = []
-        #     self.chain.add_block_to_chain(block)
-        #     if self.validate_block(block):
-        #         self.broadcast_block(block)
+        if self.wallet.public_key == validator_key:
+            index = len(self.blockchain.blocks)
+            block = Block(index, prev_hash)
+            self.transactions = []
+            self.chain.add_block_to_chain(block)
+            if self.validate_block(block):
+                self.broadcast_block(block)
 
     # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block, prev_block):
@@ -188,6 +188,7 @@ class Node:
 
         self.block_lock.acquire()
         print("Acquired lock")
+
         # if enough transactions  mine
         if self.current_block.add_transaction(transaction) == "mine":
             self.mine_block()
@@ -198,7 +199,7 @@ class Node:
     def broadcast_transaction(self, transaction):
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/broadcast_transaction"
+                url = f"http://{node.ip_address}:{node.port}/validate_transaction"
                 try:
                     res = requests.post(
                         url, json={"ring": json.dumps(transaction.__dict__)}
@@ -219,6 +220,7 @@ class Node:
 
         if all(responses):
             self.add_transaction_to_block(transaction)
+            
 
     def broadcast_block(self, block):
         def thread_target(node, responses):
