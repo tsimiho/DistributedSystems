@@ -19,7 +19,15 @@ from wallet import Wallet
 
 
 class Node:
-    def __init__(self, id=None, number_of_nodes=None, blockchain=None, ip_address=None, port=None, capacity=None):
+    def __init__(
+        self,
+        id=None,
+        number_of_nodes=None,
+        blockchain=None,
+        ip_address=None,
+        port=None,
+        capacity=None,
+    ):
         self.NBC = 0
         self.id = id
         self.chain = blockchain
@@ -62,7 +70,7 @@ class Node:
             self.nonce,
         )
         signature = transaction.sign_transaction(self.wallet.private_key)
-        self.broadcast_transaction(transaction, signature)
+        self.broadcast_transaction(transaction)
 
         return True
 
@@ -137,7 +145,7 @@ class Node:
             block.previous_hash != prev_block.current_hash
         ):
             return False
-        self.blo
+        # self.blo
         return True
 
     def validate_chain(self, chain):
@@ -188,7 +196,7 @@ class Node:
         if self.current_block is None:
             self.current_block = self.create_new_block()
 
-        self.current_block.amount += transaction.amount
+        self.current_block.total += transaction.amount
 
         self.block_lock.acquire()
         print("Acquired lock")
@@ -201,6 +209,7 @@ class Node:
         self.block_lock.release()
 
     def broadcast_transaction(self, transaction):
+        print("broadcast_transaction")
         lock = Lock()
 
         def thread_target(node, responses):
@@ -229,6 +238,7 @@ class Node:
             self.add_transaction_to_block(transaction)
 
     def broadcast_block(self, block):
+        print("broadcast_block")
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
                 url = f"http://{node.ip_address}:{node.port}/broadcast_block"
@@ -249,10 +259,10 @@ class Node:
             thread.join()
 
         if all(responses):
-            if self.validate_block(block):
-                pass  # Maybe we need to add the block to the chain here
+            pass  # Maybe we need to add the block to the chain here
 
     def broadcast_ring(self):
+        print("broadcast_ring")
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
                 url = f"http://{node.ip_address}:{node.port}/broadcast_block"
@@ -273,3 +283,4 @@ class Node:
 
         for thread in threads:
             thread.join()
+

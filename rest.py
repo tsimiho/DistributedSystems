@@ -1,26 +1,31 @@
+import json
+from argparse import ArgumentParser, ArgumentTypeError
+from threading import Lock, Thread
+
 import requests
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
-from threading import Lock, Thread
 
 import block
 import blockchain
 import transaction
 import wallet
 from node import Node
-import json
 
 total_nodes = 5
 app = Flask(__name__)
 CORS(app)
 node = Node()
+
+
 # .......................................................................................
 # Endpoint to register a new node in the network
 # used only by the starting node and executes the register_node_to_ring function
-@app.route('/add_node', methods=['POST'])
+@app.route("/add_node", methods=["POST"])
 def add_node():
     # Get the arguments
-    register_node = request.form.get('register_node')
+    register_node = request.json.get("register_node")
+    print(register_node)
     node_id = len(node.ring)
     register_node.id = node_id
 
@@ -31,38 +36,41 @@ def add_node():
     # - the current chain
     # - the ring
     # - the first transaction
-    if (node_id == total_nodes - 1):
-        for ring_node in node.ring:
+    if node_id == total_nodes - 1:
+        for _, ring_node in node.ring.items():
             if ring_node.id != node.id:
-                node.share_chain(ring_node)
-                node.share_ring(ring_node)
+                # node.share_chain(ring_node)
+                # node.share_ring(ring_node)
                 node.create_transaction(
-                    sender_address=node.public_key,
+                    sender_address=node.wallet.public_key,
                     receiver_address=ring_node.public_key,
                     type_of_transaction="coins",
                     amount=100,
-                    message=""
+                    message="",
                 )
 
-    return jsonify({'id': node_id})
+    return jsonify({"id": node_id})
+
 
 # Endpoint to validate a transaction from another node
-@app.route('/validate_transaction', methods=['POST'])
-def validate_transaction():
-    new_transaction = request.form.get('transaction')
+@app.route("/validate_transaction", methods=["POST"])
+def val_transaction():
+    new_transaction = request.form.get("transaction")
     if node.validate_transaction(new_transaction):
-        return jsonify({'message': "Transaction validated"}), 200
+        return jsonify({"message": "Transaction validated"}), 200
     else:
-        return jsonify({'message': "Something went wrongs"}), 401
+        return jsonify({"message": "Something went wrongs"}), 401
 
-# Endpoint to get a block after it has been validated 
-@app.route('/get_block', methods=['POST'])
-def validate_transaction():
-    block = request.form.get('block')
+
+# Endpoint to get a block after it has been validated
+@app.route("/get_block", methods=["POST"])
+def get_block():
+    block = request.form.get("block")
     if node.chain.add_block_to_chain(block):
-        return jsonify({'message': "Block has been added"}), 200
+        return jsonify({"message": "Block has been added"}), 200
     else:
-        return jsonify({'message': "Block hasn't been added"}), 401
+        return jsonify({"message": "Block hasn't been added"}), 401
+
 
 ##############################################################################################
 # Starting page
@@ -111,7 +119,7 @@ def create_transaction():
     # # the type of transaction
     # sender_public_key = int(request.form.get("sender"))
     receiver_public_key = str(request.form.get("receiver"))
-    if request.form.get("amount") == '':
+    if request.form.get("amount") == "":
         amount = 0
     else:
         amount = int(request.form.get("amount"))
@@ -119,14 +127,18 @@ def create_transaction():
     type_of_transaction = str(request.form.get("type"))
     print("Type of transaction", type_of_transaction)
     if node.create_transaction(
-        node.wallet.public_key, receiver_public_key, type_of_transaction, amount, message
+        node.wallet.public_key,
+        receiver_public_key,
+        type_of_transaction,
+        amount,
+        message,
     ):
         return (
             jsonify(
                 {
                     "message": "The transaction was successful.",
                     "balance": node.wallet.get_balance(),
-                    "sender_public_key": node.wallet.public_key
+                    "sender_public_key": node.wallet.public_key,
                 }
             ),
             200,
@@ -151,56 +163,81 @@ def get_transactions():
 
 # run it once fore every node
 if __name__ == "__main__":
-    from argparse import ArgumentParser
 
     parser = ArgumentParser()
     parser.add_argument(
-        "-p", "--port", default=5000, type=int, help="port to listen on"
-        "-b", default = True, type=bool, help="is it the bootstrap node"
-        # "-id", default = "id0", type=str, help="id of the node"
+        "-p",
+        "--port",
+        default=5000,
+        type=int,
+        help="port to listen on",
+    )
+    parser.add_argument(
+        "-b",
+        "--bootstrap",
+        default=True,
+        help="is it the bootstrap node",
     )
     args = parser.parse_args()
     port = args.port
-    bootstrap_node = args.b
+    b = args.bootstrap
+    if isinstance(b, bool):
+        bootstrap_node = b
+    elif b.lower() in ("yes", "true", "t", "y", "1"):
+        bootstrap_node = True
+    elif b.lower() in ("no", "false", "f", "n", "0"):
+        bootstrap_node = False
+    else:
+        raise ArgumentTypeError("Boolean value expected.")
     # node_id = args.id
 
     if bootstrap_node:
         blockchain = blockchain.Blockchain()
+        print("Created blockchain")
         # maybe we should create a function that adds the starting node to the ring or check if "id0" then add node to ring
         node.chain = blockchain
         node.id = "id0"
         node.number_of_nodes = 1
         node.ip_address = "127.0.0.1"
         node.port = port
-        
+
         # Listen in the specified port
         app.run(host="127.0.0.1", port=port)
-        
+
         # create genesis block
         genesis = node.create_new_block()
 
         # add first transaction to genesis block
         # Adds the first and only transaction in the genesis block.
         first_transaction = transaction.Transaction(
-            sender_address="0", receiver_address=node.wallet.public_key,type_of_transaction="coins", amount=100 * total_nodes, message="")
-        genesis.current_hash = genesis.get_hash()
+            sender_address="0",
+            receiver_address=node.wallet.public_key,
+            type_of_transaction="coins",
+            amount=100 * total_nodes,
+            message="",
+            nonce = 0
+        )
+        genesis.current_hash = genesis.myHash()
         genesis.listOfTransactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
 
         # Add the genesis block in the chain.
         node.chain.add_block_to_chain(genesis)
-        node.current_block = None 
+        node.current_block = None
+
     else:
+        node.ip_address = "127.0.0.1"
+        node.port = port
+        print(json.dumps(node.__dict__))
+
         def thread_target():
             url = f"http://127.0.0.1:{node.port}/add_node"
             try:
-                res = requests.post(
-                    url, json={"register_node": node}
-                )
+                res = requests.post(url, json={"register_node": node.__dict__})
                 if res.status_code == 200:
                     print("Node initialized")
 
-                node.id = res.json()['id']
+                node.id = res.json()["id"]
             except Exception as e:
                 print(f"Failed to broadcast transaction: {e}")
 
