@@ -199,7 +199,7 @@ class Node:
         self.current_block.total += transaction.amount
 
         self.block_lock.acquire()
-        print("Acquired lock")
+        #print("Acquired lock")
 
         # if enough transactions  mine
         if self.current_block.add_transaction(transaction) == "mine":
