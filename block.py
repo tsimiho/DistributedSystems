@@ -18,6 +18,20 @@ class Block:
         self.current_hash = self.myHash()
         self.capacity = 2
 
+    def to_dict(self):
+        return {
+            "index": self.index,
+            "previous_hash": self.previous_hash,
+            "timestamp": self.timestamp,
+            "nonce": self.nonce,
+            "validator": self.validator,
+            "current_hash": self.current_hash,
+            "capacity": self.capacity,
+            "transactions": [
+                transaction.to_dict() for transaction in self.transactions
+            ],
+        }
+
     def myHash(self):
         block_string = json.dumps(
             self.__dict__, sort_keys=True

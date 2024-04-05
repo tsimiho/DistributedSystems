@@ -19,6 +19,15 @@ class Wallet:
         self.private_key, self.public_key = self.generate_wallet()
         self.transactions = []
 
+    def to_dict(self):
+        return {
+            "private_key": self.private_key,
+            "public_key": self.public_key,
+            "transactions": [
+                transaction.to_dict() for transaction in self.transactions
+            ],
+        }
+
     def generate_wallet(self):
         key = RSA.generate(2048)
         private_key = key.export_key()

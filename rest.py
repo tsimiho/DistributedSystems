@@ -62,25 +62,16 @@ def broadcast_transaction_endpoint():
 @app.route("/broadcast_block", methods=["POST"])
 def broadcast_block_endpoint():
     new_block = request.form.get("block")
-    node.validate_block(new_block)
-    return jsonify({"message": "Block received"}), 200
-
+    if node.validate_block(new_block):
+        return jsonify({"message": "Block added"}), 200
+    else: 
+        return jsonify({"message": "Block could not be added"}), 401
 
 @app.route("/broadcast_ring", methods=["POST"])
 def broadcast_ring_endpoint():
     new_ring = request.form.get("ring")
     node.ring = new_ring
     return jsonify({"message": "Ring received"}), 200
-
-
-# Endpoint to get a block after it has been validated
-@app.route("/get_block", methods=["POST"])
-def get_block():
-    block = request.form.get("block")
-    if node.chain.add_block_to_chain(block):
-        return jsonify({"message": "Block has been added"}), 200
-    else:
-        return jsonify({"message": "Block hasn't been added"}), 401
 
 
 ##############################################################################################

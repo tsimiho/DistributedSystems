@@ -31,6 +31,18 @@ class Transaction:
         self.signature = None
         self.transaction_id = self.calculate_transaction_id()
 
+    def to_dict(self):
+        return {
+            "sender_address": self.sender_address,
+            "receiver_address": self.receiver_address,
+            "amount": self.amount,
+            "type_of_transaction": self.type_of_transaction,
+            "message": self.message,
+            "nonce": self.nonce,
+            "signature": self.signature,
+            "transaction_id": self.transaction_id,
+        }
+
     def calculate_transaction_id(self):
         block_string = json.dumps(self.__dict__, sort_keys=True)
         return SHA256.new(block_string.encode()).hexdigest()
@@ -40,7 +52,8 @@ class Transaction:
         key = RSA.importKey(base64.b64decode(private_key))
         h = SHA256.new(message)
         signer = PKCS1_v1_5.new(key)
-        self.signature =  base64.b64encode(signer.sign(h)).decode()
+        self.signature = base64.b64encode(signer.sign(h)).decode()
+
     """
     def calculate_fee(self):
         if self.type_of_transaction == "coins":
