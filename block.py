@@ -12,7 +12,7 @@ class Block:
         self.index = index
         self.previous_hash = previous_hash
         self.timestamp = time.time()
-        self.listOfTransactions = []
+        self.transactions = []
         self.nonce = 0
         self.validator = None
         self.current_hash = self.myHash()
@@ -25,8 +25,8 @@ class Block:
         return SHA256.new(block_string.encode()).hexdigest()
 
     def add_transaction(self, transaction):
-        self.listOfTransactions.append(transaction)
-        if len(self.listOfTransactions) == self.capacity:
+        self.transactions.append(transaction)
+        if len(self.transactions) == self.capacity:
             print("block full")
             return "mine"
 

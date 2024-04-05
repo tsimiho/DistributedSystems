@@ -28,24 +28,34 @@ class Node:
         port=None,
         capacity=None,
     ):
-        #self.NBC = 0
         self.id = id
         self.chain = blockchain
         self.current_id_count = 0
         self.wallet = Wallet()
         self.ring = {}
+        self.soft_state = {}
         self.nonce = 0
-        self.stake = 0
+        self.stake = 1
         self.balance = 0
         self.current_block = None
         self.number_of_nodes = number_of_nodes
-        self.transactions_to_confirm = None
+        self.transactions = None
         #self.filter_lock = Lock()
         #self.chain_lock = Lock()
         #self.block_lock = Lock()
         self.ip_address = ip_address
         self.port = port
         self.capacity = capacity
+
+    def node_to_dict(self):
+        return {
+            'id': self.id,
+            'ip': self.ip_address,
+            'port': self.port,
+            'public_key': self.wallet.public_key,
+            'balance' : self.balance,
+            'stake' : self.stake
+        }
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
@@ -106,7 +116,8 @@ class Node:
         if balance_needed > sender.balance - sender.stake:
             return False
         else:
-            sender.balance -= balance_needed
+            #sender.balance -= balance_needed
+            self.soft_state[sender.public_key]['balance'] -= balance_needed
 
             # maybe we need some checks here (if transaction in another block)
             self.transactions.append(transaction)
@@ -161,10 +172,11 @@ class Node:
         pass
 
     def register_node_to_ring(self, node):
-        self.ring[node.wallet.public_key] = node
+        self.ring[node.wallet.public_key] = node.node_to_dict()
+        self.soft_state[node.wallet.public_key] = node.node_to_dict()
         if len(self.ring.items()) > 1:
             self.create_transaction(
-                self.wallet.public_key, node.wallet.public_key, "balance", 1000, None
+                self.wallet.public_key, node.wallet.public_key, "coins", 1000, None
             )
 
         if len(self.ring.items()) == self.number_of_nodes:
@@ -186,11 +198,11 @@ class Node:
                 print("Here")
                 if transaction.type_of_transaction == "message":
                     print("It's a message")
-                    self.wallet.balance -= len(transaction.message)
+                    self.balance -= len(transaction.message)
                 else:
-                    self.wallet.balance -= transaction.amount
+                    self.balance -= transaction.amount
             if node.wallet.public_key == transaction.receiver_address:
-                self.wallet.balance += transaction.amount
+                self.balance += transaction.amount
 
         # If the chain contains only the genesis block, a new block
         # is created. In other cases, the block is created after mining.
@@ -218,7 +230,7 @@ class Node:
                 url = f"http://{node.ip_address}:{node.port}/validate_transaction"
                 try:
                     res = requests.post(
-                        url, json={"ring": json.dumps(transaction.__dict__)}
+                        url, json={"transaction": json.dumps(transaction.__dict__)}
                     )
                     with lock:
                         responses.append(res.status_code == 200)
@@ -244,7 +256,7 @@ class Node:
             if node.wallet.public_key != self.wallet.public_key:
                 url = f"http://{node.ip_address}:{node.port}/broadcast_block"
                 try:
-                    res = requests.post(url, json={"ring": json.dumps(block.__dict__)})
+                    res = requests.post(url, json={"block": json.dumps(block.__dict__)})
                     responses.append(res.status_code == 200)
                 except Exception as e:
                     print(f"Failed to broadcast block: {e}")

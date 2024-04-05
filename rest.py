@@ -91,7 +91,7 @@ def get_blocks():
             "index": block.index,
             "previous_hash": block.previous_hash,
             "timestamp": block.timestamp,
-            "listOfTransactions": [vars(tx) for tx in block.listOfTransactions],
+            "transactions": [vars(tx) for tx in block.transactions],
             "nonce": block.nonce,
             "validator": block.validator,
             "current_hash": block.current_hash,
@@ -137,7 +137,7 @@ def create_transaction():
             jsonify(
                 {
                     "message": "The transaction was successful.",
-                    "balance": node.wallet.get_balance(),
+                    "balance": node.balance,
                     "sender_public_key": node.wallet.public_key,
                 }
             ),
@@ -146,7 +146,7 @@ def create_transaction():
     else:
         return (
             jsonify(
-                {"message": "Not enough BCCs.", "balance": node.wallet.get_balance()}
+                {"message": "Not enough BCCs.", "balance": node.balance}
             ),
             400,
         )
@@ -218,7 +218,7 @@ if __name__ == "__main__":
             nonce = 0
         )
         genesis.current_hash = genesis.myHash()
-        genesis.listOfTransactions.append(first_transaction)
+        genesis.transactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
 
         # Add the genesis block in the chain.
