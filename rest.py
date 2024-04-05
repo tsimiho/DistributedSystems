@@ -52,14 +52,25 @@ def add_node():
     return jsonify({"id": node_id})
 
 
-# Endpoint to validate a transaction from another node
-@app.route("/validate_transaction", methods=["POST"])
-def val_transaction():
+@app.route("/broadcast_transaction", methods=["POST"])
+def broadcast_transaction_endpoint():
     new_transaction = request.form.get("transaction")
-    if node.validate_transaction(new_transaction):
-        return jsonify({"message": "Transaction validated"}), 200
-    else:
-        return jsonify({"message": "Something went wrongs"}), 401
+    node.validate_transaction(new_transaction)
+    return jsonify({"message": "Transaction received"}), 200
+
+
+@app.route("/broadcast_block", methods=["POST"])
+def broadcast_block_endpoint():
+    new_block = request.form.get("block")
+    node.validate_block(new_block)
+    return jsonify({"message": "Block received"}), 200
+
+
+@app.route("/broadcast_ring", methods=["POST"])
+def broadcast_ring_endpoint():
+    new_ring = request.form.get("ring")
+    node.ring = new_ring
+    return jsonify({"message": "Ring received"}), 200
 
 
 # Endpoint to get a block after it has been validated
@@ -145,9 +156,7 @@ def create_transaction():
         )
     else:
         return (
-            jsonify(
-                {"message": "Not enough BCCs.", "balance": node.balance}
-            ),
+            jsonify({"message": "Not enough BCCs.", "balance": node.balance}),
             400,
         )
     # return str(sender_public_key) + str(receiver_public_key) + str(type_of_transaction) + str(amount) + str(message)
@@ -215,7 +224,7 @@ if __name__ == "__main__":
             type_of_transaction="coins",
             amount=1000 * total_nodes,
             message="",
-            nonce = 0
+            nonce=0,
         )
         genesis.current_hash = genesis.myHash()
         genesis.transactions.append(first_transaction)
