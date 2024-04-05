@@ -45,7 +45,7 @@ def add_node():
                     sender_address=node.wallet.public_key,
                     receiver_address=ring_node.public_key,
                     type_of_transaction="coins",
-                    amount=100,
+                    amount=1000,
                     message="",
                 )
 
@@ -114,7 +114,7 @@ def create_transaction():
     # Get input arguments:
     # id of the sender node
     # id of the receiver node
-    # the amount of NBCs to send
+    # the amount of BCCs to send
     # the message to send
     # # the type of transaction
     # sender_public_key = int(request.form.get("sender"))
@@ -146,7 +146,7 @@ def create_transaction():
     else:
         return (
             jsonify(
-                {"message": "Not enough NBCs.", "balance": node.wallet.get_balance()}
+                {"message": "Not enough BCCs.", "balance": node.wallet.get_balance()}
             ),
             400,
         )
@@ -213,7 +213,7 @@ if __name__ == "__main__":
             sender_address="0",
             receiver_address=node.wallet.public_key,
             type_of_transaction="coins",
-            amount=100 * total_nodes,
+            amount=1000 * total_nodes,
             message="",
             nonce = 0
         )

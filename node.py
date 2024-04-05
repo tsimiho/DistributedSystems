@@ -28,7 +28,7 @@ class Node:
         port=None,
         capacity=None,
     ):
-        self.NBC = 0
+        #self.NBC = 0
         self.id = id
         self.chain = blockchain
         self.current_id_count = 0
@@ -36,12 +36,13 @@ class Node:
         self.ring = {}
         self.nonce = 0
         self.stake = 0
+        self.balance = 0
         self.current_block = None
         self.number_of_nodes = number_of_nodes
-        self.blocks_to_confirm = deque()
-        self.filter_lock = Lock()
-        self.chain_lock = Lock()
-        self.block_lock = Lock()
+        self.transactions_to_confirm = None
+        #self.filter_lock = Lock()
+        #self.chain_lock = Lock()
+        #self.block_lock = Lock()
         self.ip_address = ip_address
         self.port = port
         self.capacity = capacity
@@ -69,11 +70,11 @@ class Node:
             message,
             self.nonce,
         )
-        signature = transaction.sign_transaction(self.wallet.private_key)
+        transaction.signature = transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction)
 
         return True
-
+    """
     def sign_transaction(self, transaction):
         signer = PKCS1_v1_5.new(
             RSA.importKey(base64.b64decode(self.wallet.private_key))
@@ -81,7 +82,7 @@ class Node:
         h = SHA256.new(json.dumps(transaction.to_dict(), sort_keys=True).encode())
         signature = signer.sign(h)
         return base64.b64encode(signature).decode()
-
+    """
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction.sender_address))
         h = transaction.calculate_transaction_id()
@@ -93,19 +94,19 @@ class Node:
         if verify == False:
             return False
 
-        if transaction.type_of_transaction == "coins":
-            coins_needed = transaction.amount + transaction.caclulate_fee()
+        if transaction.type_of_transaction == "balance":
+            balance_needed = 1.03 * transaction.amount
         elif transaction.type_of_transaction == "message":
-            coins_needed = len(transaction.message)
+            balance_needed = len(transaction.message)
         else:
             print("Wrong type of transaction.")
             return False
 
         sender = self.ring[transaction.sender_address]
-        if coins_needed > sender.balance - sender.stake:
+        if balance_needed > sender.balance - sender.stake:
             return False
         else:
-            sender.balance -= coins_needed
+            sender.balance -= balance_needed
 
             # maybe we need some checks here (if transaction in another block)
             self.transactions.append(transaction)
@@ -156,14 +157,14 @@ class Node:
                 return False
         return True
 
-    def stake(self, amount):
+    def set_stake(self, amount):
         pass
 
     def register_node_to_ring(self, node):
         self.ring[node.wallet.public_key] = node
         if len(self.ring.items()) > 1:
             self.create_transaction(
-                self.wallet.public_key, node.wallet.public_key, "coins", 1000, None
+                self.wallet.public_key, node.wallet.public_key, "balance", 1000, None
             )
 
         if len(self.ring.items()) == self.number_of_nodes:
@@ -185,18 +186,18 @@ class Node:
                 print("Here")
                 if transaction.type_of_transaction == "message":
                     print("It's a message")
-                    self.wallet.coins -= len(transaction.message)
+                    self.wallet.balance -= len(transaction.message)
                 else:
-                    self.wallet.coins -= transaction.amount
+                    self.wallet.balance -= transaction.amount
             if node.wallet.public_key == transaction.receiver_address:
-                self.wallet.coins += transaction.amount
+                self.wallet.balance += transaction.amount
 
         # If the chain contains only the genesis block, a new block
         # is created. In other cases, the block is created after mining.
         if self.current_block is None:
             self.current_block = self.create_new_block()
 
-        self.current_block.total += transaction.amount
+        #self.current_block.total += transaction.amount
 
         self.block_lock.acquire()
         #print("Acquired lock")

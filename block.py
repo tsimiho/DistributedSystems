@@ -17,7 +17,6 @@ class Block:
         self.validator = None
         self.current_hash = self.myHash()
         self.capacity = 2
-        self.total = 0
 
     def myHash(self):
         block_string = json.dumps(
