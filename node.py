@@ -94,25 +94,38 @@ class Node:
         if verify == False:
             return False
 
-        if transaction.type_of_transaction == "coins":
-            balance_needed = 1.03 * transaction.amount
-        elif transaction.type_of_transaction == "message":
-            balance_needed = len(transaction.message)
+        if transaction["type_of_transaction"] == "coins":
+            if (
+                1.03 * transaction["amount"]
+                <= self.soft_state[transaction["sender_address"]].balance
+                - self.soft_state[transaction["sender_address"]].stake
+            ):
+                self.soft_state[transaction["sender_address"]].balance -= 1.03 * transaction["amount"]
+                #self.ring[t.receiver_address].balance += t.amount
+                #self.ring[block.vaidator].balance += 0.03 * t.amount
+            else:
+                return False
+        elif transaction["type_of_transaction"] == "message":
+            if (
+                len(transaction["message"])
+                <= self.soft_state[transaction["sender_address"]].balance
+                - self.soft_state[transaction["sender_address"]].stake
+            ):
+                self.soft_state[transaction["sender_address"]].balance -= len(transaction["message"])
+                #self.ring[block.vaidator].balance += len(t.message)
+            else:
+                return False
+        elif transaction["type_of_transaction"] == "stake":
+            if transaction["amount"] <= self.soft_state[transaction["sender_address"]].balance:
+                self.ring[transaction["sender_address"]].stake = transaction["amount"]
+            else:
+                return False
         else:
-            print("Wrong type of transaction.")
             return False
 
-        sender = self.soft_state[transaction.sender_address]
-        if balance_needed > sender.balance - sender.stake:
-            return False
-        else:
-            # sender.balance -= balance_needed
-            self.soft_state[sender.public_key]["balance"] -= balance_needed
-
-            self.transactions.append(transaction)
-            if len(self.transactions) == self.capacity:
-                self.mine_block()
-                # self.transactions = []
+        self.transactions.append(transaction)
+        if len(self.transactions) == self.capacity:
+            self.mine_block()
 
     def lottery(self, hash):
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
@@ -134,14 +147,8 @@ class Node:
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
             self.current_block.validator = validator_key
-            self.chain.add_block_to_chain(self.current_block)
-            self.ring = self.soft_state
+            self.validate_block(self.current_block)
             self.broadcast_block(self.current_block)
-            index = len(self.chain.blocks)
-            current_hash = self.current_block.current_hash
-            block = Block(index, current_hash)
-            self.transactions = self.transactions[self.capacity :]
-            self.current_block = block
 
     # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block):
@@ -184,6 +191,7 @@ class Node:
             index = len(self.chain.blocks)
             current_hash = block.current_hash
             self.current_block = Block(index, current_hash)
+            self.soft_state = self.ring
             return True
         else:
             return False
@@ -207,34 +215,16 @@ class Node:
         #         self.wallet.public_key, node["public_key"], "coins", 1000, None
         #     )
 
-    # NOT READY YET
     # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
     def add_transaction_to_block(self, transaction):
-        # Add the transaction in node's wallet, if it is the recepient or the sender
-        if (transaction.receiver_address == self.wallet.public_key) or (
-            transaction.sender_address == self.wallet.public_key
-        ):
-            self.wallet.transactions.append(transaction)
-            # self.nonce += 1
-        # print(self.ring)
-        # Update the balance of the recipient and the sender.
-        for _, node in self.ring.items():
-            print(transaction.type_of_transaction)
-            if node.wallet.public_key == transaction.sender_address:
-                if transaction.type_of_transaction == "message":
-                    print("It's a message")
-                    self.balance -= len(transaction.message)
-                else:
-                    self.balance -= transaction.amount
-            if node.wallet.public_key == transaction.receiver_address:
-                self.balance += transaction.amount
-
-        # If the chain contains only the genesis block, a new block
-        # is created. In other cases, the block is created after mining.
-        if self.current_block is None:
-            self.current_block = self.create_new_block()
-
-        # self.current_block.total += transaction.amount
+        self.current_block.add_transaction(Transaction(
+            transaction["sender_address"],
+            transaction["receiver_address"],
+            transaction["type_of_transaction"],
+            transaction["amount"],
+            transaction["message"],
+            transaction["nonce"]
+        ))
 
     def broadcast_transaction(self, transaction):
         print("broadcast_transaction")
