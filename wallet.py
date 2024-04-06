@@ -17,8 +17,16 @@ from Crypto.Signature import PKCS1_v1_5
 class Wallet:
     def __init__(self):
         self.private_key, self.public_key = self.generate_wallet()
-        self.coins = 10
         self.transactions = []
+
+    def to_dict(self):
+        return {
+            "private_key": self.private_key,
+            "public_key": self.public_key,
+            "transactions": [
+                transaction.to_dict() for transaction in self.transactions
+            ],
+        }
 
     def generate_wallet(self):
         key = RSA.generate(2048)
@@ -27,6 +35,3 @@ class Wallet:
         return base64.b64encode(private_key).decode("ascii"), base64.b64encode(
             public_key
         ).decode("ascii")
-
-    def get_balance(self):
-        return self.coins

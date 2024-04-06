@@ -28,22 +28,42 @@ class Transaction:
         self.type_of_transaction = type_of_transaction
         self.message = message
         self.nonce = nonce
-        self.transaction_id = self.calculate_transaction_id()
-        # self.signature = self.sign_transaction(sender_private_key)
+        self.signature = None
+        self.transaction_id = None
+
+    def to_dict(self):
+        return {
+            "sender_address": self.sender_address,
+            "receiver_address": self.receiver_address,
+            "amount": self.amount,
+            "type_of_transaction": self.type_of_transaction,
+            "message": self.message,
+            "nonce": self.nonce,
+            "signature": self.signature,
+            "transaction_id": self.transaction_id,
+        }
 
     def calculate_transaction_id(self):
-        block_string = json.dumps(self.__dict__, sort_keys=True)
+        block_dict = self.to_dict()
+        del block_dict['signature']
+        del block_dict['transaction_id']
+        block_string = json.dumps(block_dict, sort_keys=True)
         return SHA256.new(block_string.encode()).hexdigest()
 
     def sign_transaction(self, private_key):
+        self.transaction_id = self.calculate_transaction_id()
         message = self.transaction_id.encode()
         key = RSA.importKey(base64.b64decode(private_key))
         h = SHA256.new(message)
         signer = PKCS1_v1_5.new(key)
-        return base64.b64encode(signer.sign(h)).decode()
+        self.signature = base64.b64encode(signer.sign(h)).decode()
 
+    def equals(self, transaction):
+        return self.transaction_id == transaction.transaction_id and self.signature == transaction.signature
+    """
     def calculate_fee(self):
         if self.type_of_transaction == "coins":
             return self.amount * 0.03
         else:
             return 0
+    """

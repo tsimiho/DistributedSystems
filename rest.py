@@ -45,31 +45,33 @@ def add_node():
                     sender_address=node.wallet.public_key,
                     receiver_address=ring_node.public_key,
                     type_of_transaction="coins",
-                    amount=100,
+                    amount=1000,
                     message="",
                 )
 
     return jsonify({"id": node_id})
 
 
-# Endpoint to validate a transaction from another node
-@app.route("/validate_transaction", methods=["POST"])
-def val_transaction():
+@app.route("/broadcast_transaction", methods=["POST"])
+def broadcast_transaction_endpoint():
     new_transaction = request.form.get("transaction")
-    if node.validate_transaction(new_transaction):
-        return jsonify({"message": "Transaction validated"}), 200
-    else:
-        return jsonify({"message": "Something went wrongs"}), 401
+    node.validate_transaction(new_transaction)
+    return jsonify({"message": "Transaction received"}), 200
 
 
-# Endpoint to get a block after it has been validated
-@app.route("/get_block", methods=["POST"])
-def get_block():
-    block = request.form.get("block")
-    if node.chain.add_block_to_chain(block):
-        return jsonify({"message": "Block has been added"}), 200
-    else:
-        return jsonify({"message": "Block hasn't been added"}), 401
+@app.route("/broadcast_block", methods=["POST"])
+def broadcast_block_endpoint():
+    new_block = request.form.get("block")
+    if node.validate_block(new_block):
+        return jsonify({"message": "Block added"}), 200
+    else: 
+        return jsonify({"message": "Block could not be added"}), 401
+
+@app.route("/broadcast_ring", methods=["POST"])
+def broadcast_ring_endpoint():
+    new_ring = request.form.get("ring")
+    node.ring = new_ring
+    return jsonify({"message": "Ring received"}), 200
 
 
 ##############################################################################################
@@ -91,7 +93,7 @@ def get_blocks():
             "index": block.index,
             "previous_hash": block.previous_hash,
             "timestamp": block.timestamp,
-            "listOfTransactions": [vars(tx) for tx in block.listOfTransactions],
+            "transactions": [vars(tx) for tx in block.transactions],
             "nonce": block.nonce,
             "validator": block.validator,
             "current_hash": block.current_hash,
@@ -114,7 +116,7 @@ def create_transaction():
     # Get input arguments:
     # id of the sender node
     # id of the receiver node
-    # the amount of NBCs to send
+    # the amount of BCCs to send
     # the message to send
     # # the type of transaction
     # sender_public_key = int(request.form.get("sender"))
@@ -137,7 +139,7 @@ def create_transaction():
             jsonify(
                 {
                     "message": "The transaction was successful.",
-                    "balance": node.wallet.get_balance(),
+                    "balance": node.balance,
                     "sender_public_key": node.wallet.public_key,
                 }
             ),
@@ -145,9 +147,7 @@ def create_transaction():
         )
     else:
         return (
-            jsonify(
-                {"message": "Not enough NBCs.", "balance": node.wallet.get_balance()}
-            ),
+            jsonify({"message": "Not enough BCCs.", "balance": node.balance}),
             400,
         )
     # return str(sender_public_key) + str(receiver_public_key) + str(type_of_transaction) + str(amount) + str(message)
@@ -213,12 +213,12 @@ if __name__ == "__main__":
             sender_address="0",
             receiver_address=node.wallet.public_key,
             type_of_transaction="coins",
-            amount=100 * total_nodes,
+            amount=1000 * total_nodes,
             message="",
-            nonce = 0
+            nonce=0,
         )
         genesis.current_hash = genesis.myHash()
-        genesis.listOfTransactions.append(first_transaction)
+        genesis.transactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
 
         # Add the genesis block in the chain.
