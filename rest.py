@@ -12,7 +12,7 @@ import transaction
 import wallet
 from node import Node
 
-total_nodes = 5
+total_nodes = 2
 app = Flask(__name__)
 CORS(app)
 node = Node()
@@ -23,13 +23,10 @@ node = Node()
 # used only by the starting node and executes the register_node_to_ring function
 @app.route("/add_node", methods=["POST"])
 def add_node():
-    # Get the arguments
     register_node = request.json.get("register_node")
-    print(register_node)
     node_id = len(node.ring)
-    register_node.id = node_id
+    register_node["id"] = node_id
 
-    # Add node in the list of registered nodes.
     node.register_node_to_ring(register_node)
 
     # When all nodes are registered, the bootstrap node sends them:
@@ -37,13 +34,13 @@ def add_node():
     # - the ring
     # - the first transaction
     if node_id == total_nodes - 1:
+        node.broadcast_ring()
+
         for _, ring_node in node.ring.items():
-            if ring_node.id != node.id:
-                # node.share_chain(ring_node)
-                # node.share_ring(ring_node)
+            if ring_node["id"] != node.id:
                 node.create_transaction(
                     sender_address=node.wallet.public_key,
-                    receiver_address=ring_node.public_key,
+                    receiver_address=ring_node["public_key"],
                     type_of_transaction="coins",
                     amount=1000,
                     message="",
@@ -54,22 +51,23 @@ def add_node():
 
 @app.route("/broadcast_transaction", methods=["POST"])
 def broadcast_transaction_endpoint():
-    new_transaction = request.form.get("transaction")
+    new_transaction = request.json.get("transaction")
     node.validate_transaction(new_transaction)
     return jsonify({"message": "Transaction received"}), 200
 
 
 @app.route("/broadcast_block", methods=["POST"])
 def broadcast_block_endpoint():
-    new_block = request.form.get("block")
+    new_block = request.json.get("block")
     if node.validate_block(new_block):
         return jsonify({"message": "Block added"}), 200
-    else: 
+    else:
         return jsonify({"message": "Block could not be added"}), 401
+
 
 @app.route("/broadcast_ring", methods=["POST"])
 def broadcast_ring_endpoint():
-    new_ring = request.form.get("ring")
+    new_ring = request.json.get("ring")
     node.ring = new_ring
     return jsonify({"message": "Ring received"}), 200
 
@@ -196,10 +194,12 @@ if __name__ == "__main__":
         print("Created blockchain")
         # maybe we should create a function that adds the starting node to the ring or check if "id0" then add node to ring
         node.chain = blockchain
-        node.id = "id0"
+        node.id = 0
         node.number_of_nodes = 1
         node.ip_address = "127.0.0.1"
         node.port = port
+
+        node.ring[node.wallet.public_key] = node.to_dict()
 
         # Listen in the specified port
         app.run(host="127.0.0.1", port=port)
@@ -228,12 +228,11 @@ if __name__ == "__main__":
     else:
         node.ip_address = "127.0.0.1"
         node.port = port
-        print(json.dumps(node.__dict__))
 
         def thread_target():
-            url = f"http://127.0.0.1:{node.port}/add_node"
+            url = f"http://127.0.0.1:5000/add_node"
             try:
-                res = requests.post(url, json={"register_node": node.__dict__})
+                res = requests.post(url, json={"register_node": node.to_dict()})
                 if res.status_code == 200:
                     print("Node initialized")
 

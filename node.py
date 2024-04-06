@@ -46,12 +46,12 @@ class Node:
 
     def to_dict(self):
         return {
-            'id': self.id,
-            'ip': self.ip_address,
-            'port': self.port,
-            'public_key': self.wallet.public_key,
-            'balance' : self.balance,
-            'stake' : self.stake
+            "id": self.id,
+            "ip": self.ip_address,
+            "port": self.port,
+            "public_key": self.wallet.public_key,
+            "balance": self.balance,
+            "stake": self.stake,
         }
 
     def create_new_block(self):
@@ -78,16 +78,16 @@ class Node:
             message,
             self.nonce,
         )
-        transaction.signature = transaction.sign_transaction(self.wallet.private_key)
+        transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction)
 
         return True
 
     def verify_signature(self, transaction):
-        key = RSA.importKey(base64.b64decode(transaction.sender_address))
-        h = transaction.calculate_transaction_id()
+        key = RSA.importKey(base64.b64decode(transaction["sender_address"]))
+        h = transaction["transaction_id"]
         verifier = PKCS1_v1_5.new(key)
-        return verifier.verify(h, base64.b64decode(transaction.signature))
+        return verifier.verify(h, transaction["signature"])
 
     def validate_transaction(self, transaction):
         verify = self.verify_signature(transaction)
@@ -106,13 +106,13 @@ class Node:
         if balance_needed > sender.balance - sender.stake:
             return False
         else:
-            #sender.balance -= balance_needed
-            self.soft_state[sender.public_key]['balance'] -= balance_needed
+            # sender.balance -= balance_needed
+            self.soft_state[sender.public_key]["balance"] -= balance_needed
 
             self.transactions.append(transaction)
             if len(self.transactions) == self.capacity:
                 self.mine_block()
-                #self.transactions = []
+                # self.transactions = []
 
     def lottery(self, hash):
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
@@ -140,9 +140,8 @@ class Node:
             index = len(self.chain.blocks)
             current_hash = self.current_block.current_hash
             block = Block(index, current_hash)
-            self.transactions = self.transactions[self.capacity:]
-            self.current_block = block  
-        
+            self.transactions = self.transactions[self.capacity :]
+            self.current_block = block
 
     # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block):
@@ -152,26 +151,34 @@ class Node:
             self.chain.add_block_to_chain(self.current_block)
             for t in block.transactions:
                 for tt in self.transactions:
-                    if (t.equals(tt)):
+                    if t.equals(tt):
                         self.transactions.remove(tt)
-                if t.type_of_transaction == 'coins':
-                    if (1.03 * t.amount <= self.ring[t.sender_address].balance - self.ring[t.sender_address].stake):
+                if t.type_of_transaction == "coins":
+                    if (
+                        1.03 * t.amount
+                        <= self.ring[t.sender_address].balance
+                        - self.ring[t.sender_address].stake
+                    ):
                         self.ring[t.sender_address].balance -= 1.03 * t.amount
                         self.ring[t.receiver_address].balance += t.amount
                         self.ring[block.vaidator].balance += 0.03 * t.amount
                     else:
                         return False
-                elif t.type_of_transaction == 'message':
-                    if (len(t.message) <= self.ring[t.sender_address].balance - self.ring[t.sender_address].stake):
+                elif t.type_of_transaction == "message":
+                    if (
+                        len(t.message)
+                        <= self.ring[t.sender_address].balance
+                        - self.ring[t.sender_address].stake
+                    ):
                         self.ring[t.sender_address].balance -= len(t.message)
                         self.ring[block.vaidator].balance += len(t.message)
                     else:
                         return False
-                elif t.type_of_transaction == 'stake':
-                    if (t.amount <= self.ring[t.sender_address].balance):
+                elif t.type_of_transaction == "stake":
+                    if t.amount <= self.ring[t.sender_address].balance:
                         self.ring[t.sender_address].stake = t.amount
                     else:
-                        return False                    
+                        return False
                 else:
                     return False
             index = len(self.chain.blocks)
@@ -193,15 +200,12 @@ class Node:
         return self.create_transaction(self.wallet.public_key, 0, "stake", amount, None)
 
     def register_node_to_ring(self, node):
-        self.ring[node.public_key] = node
-        self.soft_state[node.public_key] = node
-        if len(self.ring.items()) > 1:
-            self.create_transaction(
-                self.wallet.public_key, node.public_key, "coins", 1000, None
-            )
-
-        if len(self.ring.items()) == self.number_of_nodes:
-            self.broadcast_ring()
+        self.ring[node["public_key"]] = node
+        self.soft_state[node["public_key"]] = node
+        # if len(self.ring.items()) > 1:
+        #     self.create_transaction(
+        #         self.wallet.public_key, node["public_key"], "coins", 1000, None
+        #     )
 
     # NOT READY YET
     # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
@@ -211,13 +215,12 @@ class Node:
             transaction.sender_address == self.wallet.public_key
         ):
             self.wallet.transactions.append(transaction)
-            #self.nonce += 1
+            # self.nonce += 1
         # print(self.ring)
         # Update the balance of the recipient and the sender.
         for _, node in self.ring.items():
             print(transaction.type_of_transaction)
             if node.wallet.public_key == transaction.sender_address:
-                print("Here")
                 if transaction.type_of_transaction == "message":
                     print("It's a message")
                     self.balance -= len(transaction.message)
@@ -231,18 +234,19 @@ class Node:
         if self.current_block is None:
             self.current_block = self.create_new_block()
 
-        #self.current_block.total += transaction.amount
+        # self.current_block.total += transaction.amount
 
     def broadcast_transaction(self, transaction):
         print("broadcast_transaction")
+
         lock = Lock()
 
         def thread_target(node, responses):
-            if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/broadcast_transaction"
+            if node["public_key"] != self.wallet.public_key:
+                url = f"http://{node['ip']}:{node['port']}/broadcast_transaction"
                 try:
                     res = requests.post(
-                        url, json={"transaction": json.dumps(transaction.__dict__)}
+                        url, json={"transaction": transaction.to_dict()}
                     )
                     with lock:
                         responses.append(res.status_code == 200)
@@ -260,15 +264,16 @@ class Node:
             thread.join()
 
         if all(responses):
-            self.add_transaction_to_block(transaction)
+            pass
 
     def broadcast_block(self, block):
         print("broadcast_block")
+
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
                 url = f"http://{node.ip_address}:{node.port}/broadcast_block"
                 try:
-                    res = requests.post(url, json={"block": json.dumps(block.__dict__)})
+                    res = requests.post(url, json={"block": block.to_dict()})
                     responses.append(res.status_code == 200)
                 except Exception as e:
                     print(f"Failed to broadcast block: {e}")
@@ -288,13 +293,12 @@ class Node:
 
     def broadcast_ring(self):
         print("broadcast_ring")
+
         def thread_target(node, responses):
-            if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/broadcast_ring"
+            if node["public_key"] != self.wallet.public_key:
+                url = f"http://{node['ip']}:{node['port']}/broadcast_ring"
                 try:
-                    res = requests.post(
-                        url, json={"ring": json.dumps(self.ring.__dict__)}
-                    )
+                    res = requests.post(url, json={"ring": self.ring})
                     responses.append(res.status_code == 200)
                 except Exception as e:
                     print(f"Failed to broadcast block: {e}")
@@ -308,4 +312,3 @@ class Node:
 
         for thread in threads:
             thread.join()
-
