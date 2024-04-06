@@ -28,10 +28,10 @@ def add_node():
     print(register_node)
     node_id = len(node.ring)
     register_node.id = node_id
-
+    print("Add node to ring")
     # Add node in the list of registered nodes.
     node.register_node_to_ring(register_node)
-
+    print(node.ring)
     # When all nodes are registered, the bootstrap node sends them:
     # - the current chain
     # - the ring
@@ -228,10 +228,10 @@ if __name__ == "__main__":
     else:
         node.ip_address = "127.0.0.1"
         node.port = port
-        print(json.dumps(node.__dict__))
+        #print(node.__dict__)
 
         def thread_target():
-            url = f"http://127.0.0.1:{node.port}/add_node"
+            url = f"http://127.0.0.1:{5000}/add_node"
             try:
                 res = requests.post(url, json={"register_node": node.__dict__})
                 if res.status_code == 200:

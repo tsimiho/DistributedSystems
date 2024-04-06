@@ -32,7 +32,7 @@ class Node:
         self.id = id
         self.chain = blockchain
         self.current_id_count = 0
-        self.wallet = Wallet()
+        # self.wallet = Wallet()
         self.ring = {}
         self.nonce = 0
         self.stake = 0
@@ -70,6 +70,7 @@ class Node:
             self.nonce,
         )
         signature = transaction.sign_transaction(self.wallet.private_key)
+        print("Create transaction")
         self.broadcast_transaction(transaction)
 
         return True
