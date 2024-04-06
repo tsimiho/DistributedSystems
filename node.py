@@ -34,20 +34,17 @@ class Node:
         self.wallet = Wallet()
         self.ring = {}
         self.soft_state = {}
-        self.nonce = 0
+        #self.nonce = 0
         self.stake = 1
         self.balance = 0
         self.current_block = None
         self.number_of_nodes = number_of_nodes
         self.transactions = None
-        #self.filter_lock = Lock()
-        #self.chain_lock = Lock()
-        #self.block_lock = Lock()
         self.ip_address = ip_address
         self.port = port
         self.capacity = capacity
 
-    def node_to_dict(self):
+    def to_dict(self):
         return {
             'id': self.id,
             'ip': self.ip_address,
@@ -84,15 +81,7 @@ class Node:
         self.broadcast_transaction(transaction)
 
         return True
-    """
-    def sign_transaction(self, transaction):
-        signer = PKCS1_v1_5.new(
-            RSA.importKey(base64.b64decode(self.wallet.private_key))
-        )
-        h = SHA256.new(json.dumps(transaction.to_dict(), sort_keys=True).encode())
-        signature = signer.sign(h)
-        return base64.b64encode(signature).decode()
-    """
+
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction.sender_address))
         h = transaction.calculate_transaction_id()
@@ -104,7 +93,7 @@ class Node:
         if verify == False:
             return False
 
-        if transaction.type_of_transaction == "balance":
+        if transaction.type_of_transaction == "coins":
             balance_needed = 1.03 * transaction.amount
         elif transaction.type_of_transaction == "message":
             balance_needed = len(transaction.message)
@@ -112,25 +101,24 @@ class Node:
             print("Wrong type of transaction.")
             return False
 
-        sender = self.ring[transaction.sender_address]
+        sender = self.soft_state[transaction.sender_address]
         if balance_needed > sender.balance - sender.stake:
             return False
         else:
             #sender.balance -= balance_needed
             self.soft_state[sender.public_key]['balance'] -= balance_needed
 
-            # maybe we need some checks here (if transaction in another block)
             self.transactions.append(transaction)
             if len(self.transactions) == self.capacity:
                 self.mine_block()
-                self.transactions = []
+                #self.transactions = []
 
     def lottery(self, hash):
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
         random.seed(seed)
         tickets = []
         for _, node in self.ring.items():
-            tickets.extend([node.public.wallet.public_key] * node.stake)
+            tickets.extend([node.public_key] * node.stake)
         if not tickets:
             return None
         selected_validator_pubkey = random.choice(tickets)
@@ -142,19 +130,25 @@ class Node:
         validator_key = self.lottery(prev_hash)
         print(validator_key)
         if self.wallet.public_key == validator_key:
+            for i in range(self.capacity):
+                self.add_transaction_to_block(self.transactions[i])
+            self.current_block.validator = validator_key
+            self.chain.add_block_to_chain(self.current_block)
+            self.ring = self.soft_state
+            self.broadcast_block(self.current_block)
             index = len(self.chain.blocks)
             current_hash = self.current_block.current_hash
-            self.chain.add_block_to_chain(self.current_block)
-            if self.validate_block(self.current_block):
-                self.broadcast_block(self.current_block)
             block = Block(index, current_hash)
-            self.transactions = []
+            self.transactions = self.transactions[self.capacity:]
             self.current_block = block
+        else :
+            self.soft_state = self.ring    
+        
 
     # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block, prev_block):
-        if (block.validator != self.lottery(prev_block.current_hash)) or (
-            block.previous_hash != prev_block.current_hash
+        if (block.validator == self.lottery(prev_block.current_hash)) and (
+            block.previous_hash == prev_block.current_hash
         ):
             return False
         # self.blo
@@ -172,11 +166,11 @@ class Node:
         pass
 
     def register_node_to_ring(self, node):
-        self.ring[node.wallet.public_key] = node.node_to_dict()
-        self.soft_state[node.wallet.public_key] = node.node_to_dict()
+        self.ring[node.public_key] = node
+        self.soft_state[node.public_key] = node
         if len(self.ring.items()) > 1:
             self.create_transaction(
-                self.wallet.public_key, node.wallet.public_key, "coins", 1000, None
+                self.wallet.public_key, node.public_key, "coins", 1000, None
             )
 
         if len(self.ring.items()) == self.number_of_nodes:
@@ -189,10 +183,10 @@ class Node:
             transaction.sender_address == self.wallet.public_key
         ):
             self.wallet.transactions.append(transaction)
-            self.nonce += 1
+            #self.nonce += 1
         # print(self.ring)
         # Update the balance of the recipient and the sender.
-        for _, node in self.ring.itmes():
+        for _, node in self.ring.items():
             print(transaction.type_of_transaction)
             if node.wallet.public_key == transaction.sender_address:
                 print("Here")
@@ -211,23 +205,13 @@ class Node:
 
         #self.current_block.total += transaction.amount
 
-        self.block_lock.acquire()
-        #print("Acquired lock")
-
-        # if enough transactions  mine
-        if self.current_block.add_transaction(transaction) == "mine":
-            self.mine_block()
-            self.transactions = []
-
-        self.block_lock.release()
-
     def broadcast_transaction(self, transaction):
         print("broadcast_transaction")
         lock = Lock()
 
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/validate_transaction"
+                url = f"http://{node.ip_address}:{node.port}/broadcast_transaction"
                 try:
                     res = requests.post(
                         url, json={"transaction": json.dumps(transaction.__dict__)}
@@ -278,7 +262,7 @@ class Node:
         print("broadcast_ring")
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/broadcast_block"
+                url = f"http://{node.ip_address}:{node.port}/broadcast_ring"
                 try:
                     res = requests.post(
                         url, json={"ring": json.dumps(self.ring.__dict__)}

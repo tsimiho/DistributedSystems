@@ -15,8 +15,7 @@ class Block:
         self.transactions = []
         self.nonce = 0
         self.validator = None
-        self.current_hash = self.myHash()
-        self.capacity = 2
+        self.current_hash = None
 
     def to_dict(self):
         return {
@@ -26,16 +25,17 @@ class Block:
             "nonce": self.nonce,
             "validator": self.validator,
             "current_hash": self.current_hash,
-            "capacity": self.capacity,
             "transactions": [
                 transaction.to_dict() for transaction in self.transactions
             ],
         }
 
     def myHash(self):
+        block_dict = self.to_dict()
+        del block_dict['current_hash']
         block_string = json.dumps(
-            self.__dict__, sort_keys=True
-        )  # might need to adjust to only include serializable attributes
+            block_dict, sort_keys=True
+        )
         return SHA256.new(block_string.encode()).hexdigest()
 
     def add_transaction(self, transaction):
