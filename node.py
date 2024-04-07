@@ -326,3 +326,25 @@ class Node:
 
         for thread in threads:
             thread.join()
+
+    def start_proccess(self):
+        print("Starting proccess")
+
+        def thread_target(node, responses):
+            if node["public_key"] != self.wallet.public_key:
+                url = f"http://{node['ip']}:{node['port']}/start"
+                try:
+                    res = requests.post(url)
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to start proccess: {e}")
+
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
