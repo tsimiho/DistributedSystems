@@ -12,11 +12,11 @@ from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-import blockchain
+from blockchain import Blockchain
 from block import Block
 from transaction import Transaction
 from wallet import Wallet
-
+import pickle
 
 class Node:
     def __init__(
@@ -31,7 +31,7 @@ class Node:
         self.id = id
         self.chain = blockchain
         self.current_id_count = 0
-        # self.wallet = Wallet()
+        self.wallet = Wallet()
         self.ring = {}
         self.soft_state = {}
         self.nonce = 0
@@ -55,15 +55,17 @@ class Node:
         }
 
     def create_new_block(self):
+        print(self.chain)
         if len(self.chain.blocks) == 0:
+            print("Create new block")
             # Here, the genesis block is created.
             new_idx = 0
             previous_hash = 1
             self.current_block = Block(new_idx, previous_hash)
+            print("Created block")
         else:
             # They will be updated in mining.
             self.current_block = Block(None, None)
-
         return self.current_block
 
     def create_transaction(
@@ -233,7 +235,7 @@ class Node:
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
-                url = f"http://{node['ip']}:{node['port']}/broadcast_transaction"
+                url = f"http://{node['ip']}:{node['port']}/receive_transaction"
                 try:
                     res = requests.post(
                         url, json={"transaction": transaction.to_dict()}
@@ -261,7 +263,7 @@ class Node:
 
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/broadcast_block"
+                url = f"http://{node.ip_address}:{node.port}/receive_block"
                 try:
                     res = requests.post(url, json={"block": block.to_dict()})
                     responses.append(res.status_code == 200)
@@ -286,12 +288,34 @@ class Node:
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
-                url = f"http://{node['ip']}:{node['port']}/broadcast_ring"
+                url = f"http://{node['ip']}:{node['port']}/receive_ring"
                 try:
                     res = requests.post(url, json={"ring": self.ring})
                     responses.append(res.status_code == 200)
                 except Exception as e:
                     print(f"Failed to broadcast block: {e}")
+
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
+
+        for thread in threads:
+            thread.join()
+
+    def broadcast_chain(self):
+        print("broadcast_chain")
+
+        def thread_target(node, responses):
+            if node["public_key"] != self.wallet.public_key:
+                url = f"http://{node['ip']}:{node['port']}/receive_chain"
+                try:
+                    res = requests.post(url, data=pickle.dumps(self.chain))
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to broadcast chain: {e}")
 
         threads = []
         responses = []

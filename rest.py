@@ -11,11 +11,13 @@ import blockchain
 import transaction
 import wallet
 from node import Node
+import pickle
 
 total_nodes = 2
+node_capacity = 2
 app = Flask(__name__)
 CORS(app)
-node = Node()
+node = Node(capacity=node_capacity)
 
 
 # .......................................................................................
@@ -35,8 +37,10 @@ def add_node():
     # - the first transaction
     if node_id == total_nodes - 1:
         node.broadcast_ring()
+        node.broadcast_chain()
 
         for _, ring_node in node.ring.items():
+
             if ring_node["id"] != node.id:
                 node.create_transaction(
                     sender_address=node.wallet.public_key,
@@ -49,15 +53,15 @@ def add_node():
     return jsonify({"id": node_id})
 
 
-@app.route("/broadcast_transaction", methods=["POST"])
-def broadcast_transaction_endpoint():
+@app.route("/receive_transaction", methods=["POST"])
+def receive_transaction_endpoint():
     new_transaction = request.json.get("transaction")
     node.validate_transaction(new_transaction)
     return jsonify({"message": "Transaction received"}), 200
 
 
-@app.route("/broadcast_block", methods=["POST"])
-def broadcast_block_endpoint():
+@app.route("/receive_block", methods=["POST"])
+def receive_block_endpoint():
     new_block = request.json.get("block")
     if node.validate_block(new_block):
         return jsonify({"message": "Block added"}), 200
@@ -65,12 +69,19 @@ def broadcast_block_endpoint():
         return jsonify({"message": "Block could not be added"}), 401
 
 
-@app.route("/broadcast_ring", methods=["POST"])
-def broadcast_ring_endpoint():
+@app.route("/receive_ring", methods=["POST"])
+def receive_ring_endpoint():
     new_ring = request.json.get("ring")
     node.ring = new_ring
     return jsonify({"message": "Ring received"}), 200
 
+@app.route("/receive_chain", methods=["POST"])
+def receive_chain_endpoint():
+    new_chain = pickle.loads(request.get_data())
+    print(new_chain)
+    node.chain = new_chain
+    print(f"Received chain: {node.chain}")
+    return jsonify({"message": "Chain received"}), 200
 
 ##############################################################################################
 # Starting page
@@ -84,20 +95,22 @@ def start_page():
 # get all blocks in the blockchain
 @app.route("/blocks/get", methods=["GET"])
 def get_blocks():
-    blocks = blockchain.blocks
-    blocks_json = []
-    for block in blocks:
-        block_dict = {
-            "index": block.index,
-            "previous_hash": block.previous_hash,
-            "timestamp": block.timestamp,
-            "transactions": [vars(tx) for tx in block.transactions],
-            "nonce": block.nonce,
-            "validator": block.validator,
-            "current_hash": block.current_hash,
-            "capacity": block.capacity,
-        }
-        blocks_json.append(block_dict)
+    # blocks = blockchain.blocks
+    # blocks_json = []
+    # for block in blocks:
+    #     block_dict = {
+    #         "index": block.index,
+    #         "previous_hash": block.previous_hash,
+    #         "timestamp": block.timestamp,
+    #         "transactions": [vars(tx) for tx in block.transactions],
+    #         "nonce": block.nonce,
+    #         "validator": block.validator,
+    #         "current_hash": block.current_hash,
+    #         "capacity": block.capacity,
+    #     }
+        # blocks_json.append(block_dict)
+    blocks_json = node.chain.to_dict()
+    print(blocks_json)
     response = {"blocks": blocks_json}
     return jsonify(response), 200
 
@@ -201,9 +214,6 @@ if __name__ == "__main__":
 
         node.ring[node.wallet.public_key] = node.to_dict()
 
-        # Listen in the specified port
-        app.run(host="127.0.0.1", port=port)
-
         # create genesis block
         genesis = node.create_new_block()
 
@@ -224,6 +234,9 @@ if __name__ == "__main__":
         # Add the genesis block in the chain.
         node.chain.add_block_to_chain(genesis)
         node.current_block = None
+
+        # Listen in the specified port
+        app.run(host="127.0.0.1", port=port)
 
     else:
         node.ip_address = "127.0.0.1"
