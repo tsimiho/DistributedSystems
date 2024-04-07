@@ -1,4 +1,5 @@
 import json
+import pickle
 from argparse import ArgumentParser, ArgumentTypeError
 from threading import Lock, Thread
 
@@ -11,7 +12,6 @@ import blockchain
 import transaction
 import wallet
 from node import Node
-import pickle
 
 total_nodes = 2
 node_capacity = 2
@@ -30,17 +30,12 @@ def add_node():
     register_node["id"] = node_id
 
     node.register_node_to_ring(register_node)
-    print(node.ring)
-    # When all nodes are registered, the bootstrap node sends them:
-    # - the current chain
-    # - the ring
-    # - the first transaction
+
     if node_id == total_nodes - 1:
         node.broadcast_ring()
         node.broadcast_chain()
 
         for _, ring_node in node.ring.items():
-
             if ring_node["id"] != node.id:
                 node.create_transaction(
                     sender_address=node.wallet.public_key,
@@ -50,7 +45,25 @@ def add_node():
                     message="",
                 )
 
-    return jsonify({"id": node_id})
+    return {"id": node_id}
+
+
+# @app.route("/start", methods=["POST"])
+def start():
+    file_path = f"input/trans{node.id}.txt"
+    info = {}
+    for _, n in node.ring.items():
+        info[str(n["id"])] = n["public_key"]
+
+    with open(file_path, "r") as file:
+        for line in file:
+            parts = line.split(" ", 1)
+            id_num = int(parts[0][2:])
+            message = parts[1].strip()
+            if id_num <= len(info.items()) - 1:
+                node.create_transaction(
+                    node.wallet.public_key, info[str(id_num)], "message", None, message
+                )
 
 
 @app.route("/receive_transaction", methods=["POST"])
@@ -75,13 +88,14 @@ def receive_ring_endpoint():
     node.ring = new_ring
     return jsonify({"message": "Ring received"}), 200
 
+
 @app.route("/receive_chain", methods=["POST"])
 def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
-    print(new_chain)
     node.chain = new_chain
     print(f"Received chain: {node.chain}")
     return jsonify({"message": "Chain received"}), 200
+
 
 ##############################################################################################
 # Starting page
@@ -108,7 +122,7 @@ def get_blocks():
     #         "current_hash": block.current_hash,
     #         "capacity": block.capacity,
     #     }
-        # blocks_json.append(block_dict)
+    # blocks_json.append(block_dict)
     blocks_json = node.chain.to_dict()
     print(blocks_json)
     response = {"blocks": blocks_json}
@@ -174,7 +188,6 @@ def get_transactions():
 
 # run it once fore every node
 if __name__ == "__main__":
-
     parser = ArgumentParser()
     parser.add_argument(
         "-p",
@@ -250,8 +263,9 @@ if __name__ == "__main__":
                     print("Node initialized")
 
                 node.id = res.json()["id"]
+                start()
             except Exception as e:
-                print(f"Failed to broadcast transaction: {e}")
+                print(f"Failed : {e}")
 
         thread = Thread(target=thread_target, args=())
         thread.start()

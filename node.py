@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import pickle
 import random
 import threading
 from collections import deque
@@ -12,11 +13,11 @@ from Crypto.Hash import SHA, SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
-from blockchain import Blockchain
 from block import Block
+from blockchain import Blockchain
 from transaction import Transaction
 from wallet import Wallet
-import pickle
+
 
 class Node:
     def __init__(
@@ -102,9 +103,11 @@ class Node:
                 <= self.soft_state[transaction["sender_address"]].balance
                 - self.soft_state[transaction["sender_address"]].stake
             ):
-                self.soft_state[transaction["sender_address"]].balance -= 1.03 * transaction["amount"]
-                #self.ring[t.receiver_address].balance += t.amount
-                #self.ring[block.vaidator].balance += 0.03 * t.amount
+                self.soft_state[transaction["sender_address"]].balance -= (
+                    1.03 * transaction["amount"]
+                )
+                # self.ring[t.receiver_address].balance += t.amount
+                # self.ring[block.vaidator].balance += 0.03 * t.amount
             else:
                 return False
         elif transaction["type_of_transaction"] == "message":
@@ -113,12 +116,17 @@ class Node:
                 <= self.soft_state[transaction["sender_address"]].balance
                 - self.soft_state[transaction["sender_address"]].stake
             ):
-                self.soft_state[transaction["sender_address"]].balance -= len(transaction["message"])
-                #self.ring[block.vaidator].balance += len(t.message)
+                self.soft_state[transaction["sender_address"]].balance -= len(
+                    transaction["message"]
+                )
+                # self.ring[block.vaidator].balance += len(t.message)
             else:
                 return False
         elif transaction["type_of_transaction"] == "stake":
-            if transaction["amount"] <= self.soft_state[transaction["sender_address"]].balance:
+            if (
+                transaction["amount"]
+                <= self.soft_state[transaction["sender_address"]].balance
+            ):
                 self.ring[transaction["sender_address"]].stake = transaction["amount"]
             else:
                 return False
@@ -130,7 +138,7 @@ class Node:
             self.mine_block()
 
     def lottery(self, hash):
-        seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
+        seed = int(hashlib.sha(hash.encode()).hexdigest(), 16)
         random.seed(seed)
         tickets = []
         for _, node in self.ring.items():
@@ -219,14 +227,16 @@ class Node:
 
     # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
     def add_transaction_to_block(self, transaction):
-        self.current_block.add_transaction(Transaction(
-            transaction["sender_address"],
-            transaction["receiver_address"],
-            transaction["type_of_transaction"],
-            transaction["amount"],
-            transaction["message"],
-            transaction["nonce"]
-        ))
+        self.current_block.add_transaction(
+            Transaction(
+                transaction["sender_address"],
+                transaction["receiver_address"],
+                transaction["type_of_transaction"],
+                transaction["amount"],
+                transaction["message"],
+                transaction["nonce"],
+            )
+        )
 
     def broadcast_transaction(self, transaction):
         print("broadcast_transaction")
@@ -327,24 +337,24 @@ class Node:
         for thread in threads:
             thread.join()
 
-    def start_proccess(self):
-        print("Starting proccess")
+    # def start_proccess(self):
+    #     print("Starting proccess")
 
-        def thread_target(node, responses):
-            if node["public_key"] != self.wallet.public_key:
-                url = f"http://{node['ip']}:{node['port']}/start"
-                try:
-                    res = requests.post(url)
-                    responses.append(res.status_code == 200)
-                except Exception as e:
-                    print(f"Failed to start proccess: {e}")
+    #     def thread_target(node, responses):
+    #         if node["public_key"] != self.wallet.public_key:
+    #             url = f"http://{node['ip']}:{node['port']}/start"
+    #             try:
+    #                 res = requests.post(url)
+    #                 responses.append(res.status_code == 200)
+    #             except Exception as e:
+    #                 print(f"Failed to start proccess: {e}")
 
-        threads = []
-        responses = []
-        for _, node in self.ring.items():
-            thread = Thread(target=thread_target, args=(node, responses))
-            threads.append(thread)
-            thread.start()
+    #     threads = []
+    #     responses = []
+    #     for _, node in self.ring.items():
+    #         thread = Thread(target=thread_target, args=(node, responses))
+    #         threads.append(thread)
+    #         thread.start()
 
-        for thread in threads:
-            thread.join()
+    #     for thread in threads:
+    #         thread.join()
