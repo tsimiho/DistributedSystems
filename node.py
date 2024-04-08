@@ -117,6 +117,7 @@ class Node:
             else:
                 return False
         elif transaction["type_of_transaction"] == "message":
+            print(f"{self.id} it's a message, node has balance: {self.balance}")
             if (
                 len(transaction["message"])
                 <= self.soft_state[transaction["sender_address"]]["balance"]
@@ -143,6 +144,7 @@ class Node:
 
         self.transactions.append(transaction)
         if len(self.transactions) == self.capacity:
+            print(f"Capacity reached by node {self.id}")
             self.mine_block()
 
     def lottery(self, hash):
@@ -244,7 +246,7 @@ class Node:
         )
 
     def broadcast_transaction(self, transaction):
-        print("broadcast_transaction")
+        print(f"{self.id} broadcast_transaction")
 
         lock = Lock()
 
@@ -274,7 +276,7 @@ class Node:
             pass
 
     def broadcast_block(self, block):
-        print("broadcast_block")
+        print(f"{self.id} broadcast_block")
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
@@ -342,24 +344,24 @@ class Node:
         for thread in threads:
             thread.join()
 
-    # def start_proccess(self):
-    #     print("Starting proccess")
+    def start_proccess(self):
+        print("Starting proccess")
 
-    #     def thread_target(node, responses):
-    #         if node["public_key"] != self.wallet.public_key:
-    #             url = f"http://{node['ip']}:{node['port']}/start"
-    #             try:
-    #                 res = requests.post(url)
-    #                 responses.append(res.status_code == 200)
-    #             except Exception as e:
-    #                 print(f"Failed to start proccess: {e}")
+        def thread_target(node, responses):
+            if node["public_key"] != self.wallet.public_key:
+                url = f"http://{node['ip']}:{node['port']}/start_proccess"
+                try:
+                    res = requests.post(url)
+                    responses.append(res.status_code == 200)
+                except Exception as e:
+                    print(f"Failed to start proccess: {e}")
 
-    #     threads = []
-    #     responses = []
-    #     for _, node in self.ring.items():
-    #         thread = Thread(target=thread_target, args=(node, responses))
-    #         threads.append(thread)
-    #         thread.start()
+        threads = []
+        responses = []
+        for _, node in self.ring.items():
+            thread = Thread(target=thread_target, args=(node, responses))
+            threads.append(thread)
+            thread.start()
 
-    #     for thread in threads:
-    #         thread.join()
+        for thread in threads:
+            thread.join()

@@ -15,7 +15,7 @@ import wallet
 from node import Node
 
 total_nodes = 5
-node_capacity = 2
+node_capacity = 10
 app = Flask(__name__)
 CORS(app)
 node = Node(capacity=node_capacity)
@@ -42,7 +42,6 @@ def add_node():
                     amount=1000,
                     message="",
                 )
-
     return {"id": node_id}
 
 
@@ -52,6 +51,7 @@ def start():
     for _, n in node.ring.items():
         id_dict[str(n["id"])] = n["public_key"]
 
+    counter = 0
     with open(file_path, "r") as file:
         for line in file:
             parts = line.split(" ", 1)
@@ -60,18 +60,27 @@ def start():
             node.create_transaction(
                 node.wallet.public_key, id_dict[str(id_num)], "message", None, message
             )
+            counter += 1
+            if counter == 20:
+                return
 
+# Endpoint to start the proccess of reading from the input file
+@app.route("/start_proccess", methods=["POST"])
+def start_proccess_endpoint():
+    start()
+    return jsonify({"message": "Proccess started"}), 200
 
 @app.route("/receive_transaction", methods=["POST"])
 def receive_transaction_endpoint():
     new_transaction = request.json.get("transaction")
+    print(new_transaction)
     node.validate_transaction(new_transaction)
     return jsonify({"message": "Transaction received"}), 200
 
 
 @app.route("/receive_block", methods=["POST"])
 def receive_block_endpoint():
-    print("received block")
+    print(f"{node.id} received block")
     new_block = request.json.get("block")
     if node.validate_block(new_block):
         return jsonify({"message": "Block added"}), 200
@@ -305,8 +314,10 @@ if __name__ == "__main__":
 
                 node.id = res.json()["id"]
                 print(node.id)
-                time.sleep(10)
-                # start()
+                time.sleep(5)
+                if node.id == total_nodes - 1:
+                    node.start_proccess()
+                    start()
             except Exception as e:
                 print(f"Failed : {e}")
 
