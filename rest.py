@@ -29,7 +29,6 @@ def add_node():
 
     node.register_node_to_ring(register_node)
 
-    print("OOOOOO", node.balance)
     if node_id == total_nodes - 1:
         node.broadcast_ring()
         node.broadcast_chain()
@@ -49,9 +48,9 @@ def add_node():
 
 def start():
     file_path = f"input/trans{node.id}.txt"
-    info = {}
+    id_dict = {}
     for _, n in node.ring.items():
-        info[str(n["id"])] = n["public_key"]
+        id_dict[str(n["id"])] = n["public_key"]
 
     with open(file_path, "r") as file:
         for line in file:
@@ -59,7 +58,7 @@ def start():
             id_num = int(parts[0][2:])
             message = parts[1].strip()
             node.create_transaction(
-                node.wallet.public_key, info[str(id_num)], "message", None, message
+                node.wallet.public_key, id_dict[str(id_num)], "message", None, message
             )
 
 
@@ -95,6 +94,53 @@ def receive_chain_endpoint():
     node.chain = new_chain
     print(f"Received chain: {node.chain}")
     return jsonify({"message": "Chain received"}), 200
+
+
+@app.route("/cli", methods=["POST"])
+def cli():
+    info = request.json.get("info")
+
+    id_dict = {}
+    for _, n in node.ring.items():
+        id_dict[str(n["id"])] = n["public_key"]
+
+    if info["action"] == "transaction_coins":
+        node.create_transaction(
+            node.wallet.public_key,
+            id_dict[info["recipient_address"]],
+            "coins",
+            info["amount"],
+            None,
+        )
+    elif info["action"] == "transaction_message":
+        node.create_transaction(
+            node.wallet.public_key,
+            id_dict[info["recipient_address"]],
+            "message",
+            None,
+            info["amount"],
+        )
+    elif info["action"] == "stake":
+        node.set_stake(info["amount"])
+    elif info["action"] == "view":
+        last_block = node.chain.blocks[-1]
+        formatted_transactions = "\n".join(
+            [f"\t{str(t.to_dict())}" for t in last_block.transactions]
+        )
+        res = f"""
+        Validator: {last_block.validator}
+        Transactions: 
+        {formatted_transactions}
+        """
+        return jsonify({"message": res}), 200
+    elif info["action"] == "balance":
+        last_block = node.balance
+        res = str(node.balance)
+        return jsonify({"message": res}), 200
+    else:
+        return jsonify({"message": "Invalid CLI request"}), 200
+
+    return jsonify({"message": "CLI request received"}), 200
 
 
 ##############################################################################################
