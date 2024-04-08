@@ -38,8 +38,3 @@ class Block:
 
     def add_transaction(self, transaction):
         self.transactions.append(transaction)
-        if len(self.transactions) == self.capacity:
-            print("block full")
-            return "mine"
-
-        return "not full"

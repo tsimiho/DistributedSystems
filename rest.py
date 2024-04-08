@@ -29,6 +29,7 @@ def add_node():
 
     node.register_node_to_ring(register_node)
 
+    print("OOOOOO", node.balance)
     if node_id == total_nodes - 1:
         node.broadcast_ring()
         node.broadcast_chain()
@@ -83,12 +84,14 @@ def receive_block_endpoint():
 def receive_ring_endpoint():
     new_ring = request.json.get("ring")
     node.ring = new_ring
+    node.soft_state = new_ring
     return jsonify({"message": "Ring received"}), 200
 
 
 @app.route("/receive_chain", methods=["POST"])
 def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
+    # TODO: validate chain
     node.chain = new_chain
     print(f"Received chain: {node.chain}")
     return jsonify({"message": "Chain received"}), 200
@@ -216,9 +219,10 @@ if __name__ == "__main__":
         print("Created blockchain")
         node.chain = blockchain
         node.id = 0
-        node.number_of_nodes = 1
+        node.number_of_nodes = total_nodes
         node.ip_address = "127.0.0.1"
         node.port = port
+        node.balance = 1000 * total_nodes
 
         node.ring[node.wallet.public_key] = node.to_dict()
 
@@ -232,6 +236,7 @@ if __name__ == "__main__":
             message="",
             nonce=0,
         )
+
         genesis.current_hash = genesis.myHash()
         genesis.transactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
@@ -255,7 +260,7 @@ if __name__ == "__main__":
                 node.id = res.json()["id"]
                 print(node.id)
                 time.sleep(10)
-                start()
+                # start()
             except Exception as e:
                 print(f"Failed : {e}")
 

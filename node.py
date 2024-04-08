@@ -38,9 +38,9 @@ class Node:
         self.nonce = 0
         self.stake = 1
         self.balance = 0
-        self.current_block = None
+        self.current_block = Block(None, None)
         self.number_of_nodes = number_of_nodes
-        self.transactions = None
+        self.transactions = []
         self.ip_address = ip_address
         self.port = port
         self.capacity = capacity
@@ -100,7 +100,6 @@ class Node:
         if not verify:
             return False
 
-        print("here")
         if transaction["type_of_transaction"] == "coins":
             if (
                 1.03 * transaction["amount"]
@@ -109,6 +108,9 @@ class Node:
             ):
                 self.soft_state[transaction["sender_address"]]["balance"] -= (
                     1.03 * transaction["amount"]
+                )
+                self.soft_state[transaction["receiver_address"]]["balance"] += (
+                    transaction["amount"]
                 )
                 # self.ring[t.receiver_address].balance += t.amount
                 # self.ring[block.vaidator].balance += 0.03 * t.amount
@@ -144,11 +146,11 @@ class Node:
             self.mine_block()
 
     def lottery(self, hash):
-        seed = int(hashlib.sha(hash.encode()).hexdigest(), 16)
+        seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
         random.seed(seed)
         tickets = []
         for _, node in self.ring.items():
-            tickets.extend([node.public_key] * node.stake)
+            tickets.extend([node["public_key"]] * node["stake"])
         if not tickets:
             return None
         selected_validator_pubkey = random.choice(tickets)
@@ -158,21 +160,19 @@ class Node:
         print("Mine block")
         prev_hash = self.chain.blocks[-1].current_hash
         validator_key = self.lottery(prev_hash)
-        print(validator_key)
         if self.wallet.public_key == validator_key:
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
             self.current_block.validator = validator_key
-            self.validate_block(self.current_block)
+            self.validate_block(self.current_block.to_dict())
             self.broadcast_block(self.current_block)
 
-    # function to check if the validator is the correct and if the previous block has is correct
     def validate_block(self, block):
-        if (block.validator == self.lottery(self.chain.blocks[-1].current_hash)) and (
-            block.previous_hash == self.chain.blocks[-1].current_hash
-        ):
+        if (
+            block["validator"] == self.lottery(self.chain.blocks[-1].current_hash)
+        ) and (block["previous_hash"] == self.chain.blocks[-1].current_hash):
             self.chain.add_block_to_chain(self.current_block)
-            for t in block.transactions:
+            for t in block["transactions"]:
                 for tt in self.transactions:
                     if t.equals(tt):
                         self.transactions.remove(tt)
@@ -184,7 +184,7 @@ class Node:
                     ):
                         self.ring[t.sender_address].balance -= 1.03 * t.amount
                         self.ring[t.receiver_address].balance += t.amount
-                        self.ring[block.vaidator].balance += 0.03 * t.amount
+                        self.ring[block["validator"]].balance += 0.03 * t.amount
                     else:
                         return False
                 elif t.type_of_transaction == "message":
@@ -194,7 +194,7 @@ class Node:
                         - self.ring[t.sender_address].stake
                     ):
                         self.ring[t.sender_address].balance -= len(t.message)
-                        self.ring[block.vaidator].balance += len(t.message)
+                        self.ring[block["validator"]].balance += len(t.message)
                     else:
                         return False
                 elif t.type_of_transaction == "stake":
@@ -216,7 +216,7 @@ class Node:
         for i in range(1, len(chain.blocks)):
             block = chain.blocks[i]
             prev_block = chain.blocks[i - 1]
-            if not self.validate_block(block, prev_block):
+            if not self.validate_block(block.to_dict(), prev_block):
                 return False
         return True
 
@@ -231,7 +231,6 @@ class Node:
         #         self.wallet.public_key, node["public_key"], "coins", 1000, None
         #     )
 
-    # Method to add transaction in block, updates wallet transaction for each node and checks if the block is ready to be mined
     def add_transaction_to_block(self, transaction):
         self.current_block.add_transaction(
             Transaction(
@@ -278,7 +277,7 @@ class Node:
         print("broadcast_block")
 
         def thread_target(node, responses):
-            if node.wallet.public_key != self.wallet.public_key:
+            if node["public_key"] != self.wallet.public_key:
                 url = f"http://{node['ip']}:{node['port']}/receive_block"
                 try:
                     res = requests.post(url, json={"block": block.to_dict()})
