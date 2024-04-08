@@ -2,6 +2,7 @@ import json
 import pickle
 from argparse import ArgumentParser, ArgumentTypeError
 from threading import Lock, Thread
+import time
 
 import requests
 from flask import Flask, jsonify, render_template, request
@@ -13,16 +14,13 @@ import transaction
 import wallet
 from node import Node
 
-total_nodes = 2
+total_nodes = 5
 node_capacity = 2
 app = Flask(__name__)
 CORS(app)
 node = Node(capacity=node_capacity)
 
 
-# .......................................................................................
-# Endpoint to register a new node in the network
-# used only by the starting node and executes the register_node_to_ring function
 @app.route("/add_node", methods=["POST"])
 def add_node():
     register_node = request.json.get("register_node")
@@ -48,7 +46,6 @@ def add_node():
     return {"id": node_id}
 
 
-# @app.route("/start", methods=["POST"])
 def start():
     file_path = f"input/trans{node.id}.txt"
     info = {}
@@ -60,10 +57,9 @@ def start():
             parts = line.split(" ", 1)
             id_num = int(parts[0][2:])
             message = parts[1].strip()
-            if id_num <= len(info.items()) - 1:
-                node.create_transaction(
-                    node.wallet.public_key, info[str(id_num)], "message", None, message
-                )
+            node.create_transaction(
+                node.wallet.public_key, info[str(id_num)], "message", None, message
+            )
 
 
 @app.route("/receive_transaction", methods=["POST"])
@@ -75,6 +71,7 @@ def receive_transaction_endpoint():
 
 @app.route("/receive_block", methods=["POST"])
 def receive_block_endpoint():
+    print("received block")
     new_block = request.json.get("block")
     if node.validate_block(new_block):
         return jsonify({"message": "Block added"}), 200
@@ -213,12 +210,10 @@ if __name__ == "__main__":
         bootstrap_node = False
     else:
         raise ArgumentTypeError("Boolean value expected.")
-    # node_id = args.id
 
     if bootstrap_node:
         blockchain = blockchain.Blockchain()
         print("Created blockchain")
-        # maybe we should create a function that adds the starting node to the ring or check if "id0" then add node to ring
         node.chain = blockchain
         node.id = 0
         node.number_of_nodes = 1
@@ -227,11 +222,8 @@ if __name__ == "__main__":
 
         node.ring[node.wallet.public_key] = node.to_dict()
 
-        # create genesis block
         genesis = node.create_new_block()
 
-        # add first transaction to genesis block
-        # Adds the first and only transaction in the genesis block.
         first_transaction = transaction.Transaction(
             sender_address="0",
             receiver_address=node.wallet.public_key,
@@ -244,11 +236,9 @@ if __name__ == "__main__":
         genesis.transactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
 
-        # Add the genesis block in the chain.
         node.chain.add_block_to_chain(genesis)
         node.current_block = None
 
-        # Listen in the specified port
         app.run(host="127.0.0.1", port=port)
 
     else:
@@ -263,6 +253,8 @@ if __name__ == "__main__":
                     print("Node initialized")
 
                 node.id = res.json()["id"]
+                print(node.id)
+                time.sleep(10)
                 start()
             except Exception as e:
                 print(f"Failed : {e}")

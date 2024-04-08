@@ -88,22 +88,26 @@ class Node:
 
     def verify_signature(self, transaction):
         key = RSA.importKey(base64.b64decode(transaction["sender_address"]))
-        h = transaction["transaction_id"]
+        message = transaction["transaction_id"].encode()
+        h = SHA.new(message)
         verifier = PKCS1_v1_5.new(key)
-        return verifier.verify(h, transaction["signature"])
+        decoded_signature = base64.b64decode(transaction["signature"])
+        return verifier.verify(h, decoded_signature)
 
     def validate_transaction(self, transaction):
         verify = self.verify_signature(transaction)
-        if verify == False:
+
+        if not verify:
             return False
 
+        print("here")
         if transaction["type_of_transaction"] == "coins":
             if (
                 1.03 * transaction["amount"]
-                <= self.soft_state[transaction["sender_address"]].balance
-                - self.soft_state[transaction["sender_address"]].stake
+                <= self.soft_state[transaction["sender_address"]]["balance"]
+                - self.soft_state[transaction["sender_address"]]["stake"]
             ):
-                self.soft_state[transaction["sender_address"]].balance -= (
+                self.soft_state[transaction["sender_address"]]["balance"] -= (
                     1.03 * transaction["amount"]
                 )
                 # self.ring[t.receiver_address].balance += t.amount
@@ -113,10 +117,10 @@ class Node:
         elif transaction["type_of_transaction"] == "message":
             if (
                 len(transaction["message"])
-                <= self.soft_state[transaction["sender_address"]].balance
-                - self.soft_state[transaction["sender_address"]].stake
+                <= self.soft_state[transaction["sender_address"]]["balance"]
+                - self.soft_state[transaction["sender_address"]]["stake"]
             ):
-                self.soft_state[transaction["sender_address"]].balance -= len(
+                self.soft_state[transaction["sender_address"]]["balance"] -= len(
                     transaction["message"]
                 )
                 # self.ring[block.vaidator].balance += len(t.message)
@@ -125,9 +129,11 @@ class Node:
         elif transaction["type_of_transaction"] == "stake":
             if (
                 transaction["amount"]
-                <= self.soft_state[transaction["sender_address"]].balance
+                <= self.soft_state[transaction["sender_address"]]["balance"]
             ):
-                self.ring[transaction["sender_address"]].stake = transaction["amount"]
+                self.ring[transaction["sender_address"]]["stake"] = transaction[
+                    "amount"
+                ]
             else:
                 return False
         else:
@@ -273,7 +279,7 @@ class Node:
 
         def thread_target(node, responses):
             if node.wallet.public_key != self.wallet.public_key:
-                url = f"http://{node.ip_address}:{node.port}/receive_block"
+                url = f"http://{node['ip']}:{node['port']}/receive_block"
                 try:
                     res = requests.post(url, json={"block": block.to_dict()})
                     responses.append(res.status_code == 200)
