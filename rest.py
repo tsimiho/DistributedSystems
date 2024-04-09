@@ -1,24 +1,21 @@
-import json
 import pickle
 from argparse import ArgumentParser, ArgumentTypeError
-from threading import Lock, Thread
+from threading import Thread
 import time
 
 import requests
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 
-import block
 import blockchain
 import transaction
-import wallet
 from node import Node
 
-total_nodes = 5
-node_capacity = 10
+total_nodes = 2
+
 app = Flask(__name__)
 CORS(app)
-node = Node(capacity=node_capacity)
+node = Node()
 
 
 @app.route("/add_node", methods=["POST"])
@@ -57,18 +54,25 @@ def start():
             parts = line.split(" ", 1)
             id_num = int(parts[0][2:])
             message = parts[1].strip()
-            node.create_transaction(
-                node.wallet.public_key, id_dict[str(id_num)], "message", None, message
-            )
+            if id_num <= len(id_dict.items()) - 1:
+                node.create_transaction(
+                    node.wallet.public_key,
+                    id_dict[str(id_num)],
+                    "message",
+                    None,
+                    message,
+                )
             counter += 1
             if counter == 20:
                 return
+
 
 # Endpoint to start the proccess of reading from the input file
 @app.route("/start_proccess", methods=["POST"])
 def start_proccess_endpoint():
     start()
     return jsonify({"message": "Proccess started"}), 200
+
 
 @app.route("/receive_transaction", methods=["POST"])
 def receive_transaction_endpoint():
@@ -257,6 +261,19 @@ if __name__ == "__main__":
         default=True,
         help="is it the bootstrap node",
     )
+    parser.add_argument(
+        "-s",
+        "--stake",
+        default=10,
+        help="stake",
+    )
+    parser.add_argument(
+        "-c",
+        "--capacity",
+        default=10,
+        help="capacity",
+    )
+
     args = parser.parse_args()
     port = args.port
     b = args.bootstrap
@@ -278,6 +295,8 @@ if __name__ == "__main__":
         node.ip_address = "127.0.0.1"
         node.port = port
         node.balance = 1000 * total_nodes
+        node.stake = args.stake
+        node.capacity = args.capacity
 
         node.ring[node.wallet.public_key] = node.to_dict()
 
@@ -302,11 +321,13 @@ if __name__ == "__main__":
         app.run(host="127.0.0.1", port=port)
 
     else:
-        node.ip_address = "127.0.0.1"
+        node.ip_address = "10.255.215.255"
         node.port = port
+        node.stake = args.stake
+        node.capacity = args.capacity
 
         def thread_target():
-            url = f"http://127.0.0.1:5000/add_node"
+            url = f"http://10.255.249.34:5000/add_node"
             try:
                 res = requests.post(url, json={"register_node": node.to_dict()})
                 if res.status_code == 200:
@@ -323,4 +344,4 @@ if __name__ == "__main__":
 
         thread = Thread(target=thread_target, args=())
         thread.start()
-        app.run(host="127.0.0.1", port=port)
+        app.run(host=node.ip_address, port=port)

@@ -28,6 +28,7 @@ class Node:
         ip_address=None,
         port=None,
         capacity=None,
+        stake=10,
     ):
         self.id = id
         self.chain = blockchain
@@ -36,7 +37,7 @@ class Node:
         self.ring = {}
         self.soft_state = {}
         self.nonce = 0
-        self.stake = 1
+        self.stake = stake
         self.balance = 0
         self.current_block = Block(None, None)
         self.number_of_nodes = number_of_nodes
