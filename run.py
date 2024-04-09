@@ -9,18 +9,29 @@ def run_script(port, boolean):
 
 
 if __name__ == "__main__":
-    p1 = multiprocessing.Process(target=run_script, args=(5000, "True"))
-    p1.start()
+    processes = []
 
-    time.sleep(2)
+    try:
+        p1 = multiprocessing.Process(target=run_script, args=(5000, "True"))
+        p1.start()
+        processes.append(p1)
 
-    configs = [(5001, "False"), (5002, "False"), (5003, "False"), (5004, "False")]
-    processes = [p1]
-    for port, boolean in configs:
-        p = multiprocessing.Process(target=run_script, args=(port, boolean))
-        p.start()
-        processes.append(p)
-        time.sleep(1)
+        time.sleep(2)
 
-    for p in processes:
-        p.join()
+        configs = [(5001, "False"), (5002, "False"), (5003, "False"), (5004, "False")]
+        for port, boolean in configs:
+            p = multiprocessing.Process(target=run_script, args=(port, boolean))
+            p.start()
+            processes.append(p)
+            time.sleep(1)
+
+        for p in processes:
+            p.join()
+    except KeyboardInterrupt:
+        print("Caught KeyboardInterrupt, terminating processes")
+        for p in processes:
+            p.terminate()
+        for p in processes:
+            p.join()
+
+        sys.exit(1)

@@ -5,7 +5,7 @@ import requests
 
 hostname = socket.gethostname()
 IPAddr = socket.gethostbyname(hostname)
-url = f"http://{IPAddr}:5000/cli"
+url = f"http://127.0.0.1:5000/cli"
 
 
 def send_request(info):
@@ -14,6 +14,8 @@ def send_request(info):
         if res.status_code == 200:
             message = res.json()["message"]
             print(message)
+        else:
+            print(f"Something went wrong: {res.status_code}")
     except Exception as e:
         print(f"Failed : {e}")
 

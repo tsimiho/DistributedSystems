@@ -1,20 +1,15 @@
 import base64
 import hashlib
-import json
 import pickle
 import random
-import threading
-from collections import deque
-from copy import deepcopy
 from threading import Lock, Thread
 
 import requests
-from Crypto.Hash import SHA, SHA256
+from Crypto.Hash import SHA
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 
 from block import Block
-from blockchain import Blockchain
 from transaction import Transaction
 from wallet import Wallet
 
@@ -27,7 +22,7 @@ class Node:
         blockchain=None,
         ip_address=None,
         port=None,
-        capacity=None,
+        capacity=10,
         stake=10,
     ):
         self.id = id
@@ -57,16 +52,13 @@ class Node:
         }
 
     def create_new_block(self):
-        print(self.chain)
         if len(self.chain.blocks) == 0:
             print("Create new block")
-            # Here, the genesis block is created.
             new_idx = 0
             previous_hash = 1
             self.current_block = Block(new_idx, previous_hash)
             print("Created block")
         else:
-            # They will be updated in mining.
             self.current_block = Block(None, None)
         return self.current_block
 
@@ -113,8 +105,6 @@ class Node:
                 self.soft_state[transaction["receiver_address"]]["balance"] += (
                     transaction["amount"]
                 )
-                # self.ring[t.receiver_address].balance += t.amount
-                # self.ring[block.vaidator].balance += 0.03 * t.amount
             else:
                 return False
         elif transaction["type_of_transaction"] == "message":
@@ -127,7 +117,6 @@ class Node:
                 self.soft_state[transaction["sender_address"]]["balance"] -= len(
                     transaction["message"]
                 )
-                # self.ring[block.vaidator].balance += len(t.message)
             else:
                 return False
         elif transaction["type_of_transaction"] == "stake":
@@ -229,10 +218,6 @@ class Node:
     def register_node_to_ring(self, node):
         self.ring[node["public_key"]] = node
         self.soft_state[node["public_key"]] = node
-        # if len(self.ring.items()) > 1:
-        #     self.create_transaction(
-        #         self.wallet.public_key, node["public_key"], "coins", 1000, None
-        #     )
 
     def add_transaction_to_block(self, transaction):
         self.current_block.add_transaction(
@@ -299,7 +284,7 @@ class Node:
             thread.join()
 
         if all(responses):
-            pass  # Maybe we need to add the block to the chain here
+            pass
 
     def broadcast_ring(self):
         print("broadcast_ring")

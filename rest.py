@@ -11,7 +11,7 @@ import blockchain
 import transaction
 from node import Node
 
-total_nodes = 2
+total_nodes = 5
 
 app = Flask(__name__)
 CORS(app)
@@ -49,22 +49,23 @@ def start():
         id_dict[str(n["id"])] = n["public_key"]
 
     counter = 0
-    with open(file_path, "r") as file:
-        for line in file:
-            parts = line.split(" ", 1)
-            id_num = int(parts[0][2:])
-            message = parts[1].strip()
-            if id_num <= len(id_dict.items()) - 1:
-                node.create_transaction(
-                    node.wallet.public_key,
-                    id_dict[str(id_num)],
-                    "message",
-                    None,
-                    message,
-                )
-            counter += 1
-            if counter == 20:
-                return
+    # with open(file_path, "r") as file:
+    #     for line in file:
+    #         # print(f"{node.id}: {line}")
+    #         parts = line.split(" ", 1)
+    #         id_num = int(parts[0][2:])
+    #         message = parts[1].strip()
+    #         if id_num <= len(id_dict.items()) - 1:
+    #             node.create_transaction(
+    #                 node.wallet.public_key,
+    #                 id_dict[str(id_num)],
+    #                 "message",
+    #                 None,
+    #                 message,
+    #             )
+    #         counter += 1
+    #         if counter == 20:
+    #             return
 
 
 # Endpoint to start the proccess of reading from the input file
@@ -77,7 +78,6 @@ def start_proccess_endpoint():
 @app.route("/receive_transaction", methods=["POST"])
 def receive_transaction_endpoint():
     new_transaction = request.json.get("transaction")
-    print(new_transaction)
     node.validate_transaction(new_transaction)
     return jsonify({"message": "Transaction received"}), 200
 
@@ -138,7 +138,7 @@ def cli():
     elif info["action"] == "view":
         last_block = node.chain.blocks[-1]
         formatted_transactions = "\n".join(
-            [f"\t{str(t.to_dict())}" for t in last_block.transactions]
+            [f"{str(t.to_dict())}" for t in last_block.transactions]
         )
         res = f"""
         Validator: {last_block.validator}
@@ -183,7 +183,6 @@ def get_blocks():
     #     }
     # blocks_json.append(block_dict)
     blocks_json = node.chain.to_dict()
-    print(blocks_json)
     response = {"blocks": blocks_json}
     return jsonify(response), 200
 
@@ -234,7 +233,6 @@ def create_transaction():
             jsonify({"message": "Not enough BCCs.", "balance": node.balance}),
             400,
         )
-    # return str(sender_public_key) + str(receiver_public_key) + str(type_of_transaction) + str(amount) + str(message)
 
 
 # get all transactions in specific block
@@ -316,18 +314,17 @@ if __name__ == "__main__":
         node.wallet.transactions.append(first_transaction)
 
         node.chain.add_block_to_chain(genesis)
-        node.current_block = None
 
         app.run(host="127.0.0.1", port=port)
 
     else:
-        node.ip_address = "10.255.215.255"
+        node.ip_address = "127.0.0.1"
         node.port = port
         node.stake = args.stake
         node.capacity = args.capacity
 
         def thread_target():
-            url = f"http://10.255.249.34:5000/add_node"
+            url = f"http://127.0.0.1:5000/add_node"
             try:
                 res = requests.post(url, json={"register_node": node.to_dict()})
                 if res.status_code == 200:
