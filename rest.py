@@ -54,22 +54,22 @@ def start():
         id_dict[str(n["id"])] = n["public_key"]
 
     counter = 0
-    # with open(file_path, "r") as file:
-    #     for line in file:
-    #         parts = line.split(" ", 1)
-    #         id_num = int(parts[0][2:])
-    #         message = parts[1].strip()
-    #         if id_num <= len(id_dict.items()) - 1:
-    #             node.create_transaction(
-    #                 node.wallet.public_key,
-    #                 id_dict[str(id_num)],
-    #                 "message",
-    #                 None,
-    #                 message,
-    #             )
-    #         counter += 1
-    #         if counter == 20:
-    #             return
+    with open(file_path, "r") as file:
+        for line in file:
+            parts = line.split(" ", 1)
+            id_num = int(parts[0][2:])
+            message = parts[1].strip()
+            if id_num <= len(id_dict.items()) - 1:
+                node.create_transaction(
+                    node.wallet.public_key,
+                    id_dict[str(id_num)],
+                    "message",
+                    None,
+                    message,
+                )
+            counter += 1
+            if counter == 20:
+                return
 
 
 @app.route("/start_proccess", methods=["POST"])
@@ -109,11 +109,13 @@ def receive_ring_endpoint():
 @app.route("/receive_chain", methods=["POST"])
 def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
-    # TODO: validate chain
-    node.chain = copy.deepcopy(new_chain)
-    print(f"Node {node.id} received chain: {node.chain}")
-    node.current_block.previous_hash = node.chain.blocks[-1].current_hash
-    return jsonify({"message": "Chain received"}), 200
+    if node.validate_chain(new_chain):
+        node.chain = copy.deepcopy(new_chain)
+        print(f"Node {node.id} received chain: {node.chain}")
+        node.current_block.previous_hash = node.chain.blocks[-1].current_hash
+        return jsonify({"message": "Chain received"}), 200
+    else:
+        return jsonify({"message": "Chain could not be validated"}), 401
 
 
 @app.route("/cli", methods=["POST"])
@@ -274,7 +276,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--capacity",
-        default=4,
+        default=10,
         help="capacity",
     )
 

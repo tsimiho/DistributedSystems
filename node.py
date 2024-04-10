@@ -44,6 +44,7 @@ class Node:
         self.ip_address = ip_address
         self.port = port
         self.capacity = capacity
+        self.to_mine = True
 
     def to_dict(self):
         return {
@@ -103,6 +104,7 @@ class Node:
             return False
 
         if transaction["type_of_transaction"] == "coins":
+            print(self.soft_state[transaction["sender_address"]]["balance"])
             if (
                 1.03 * transaction["amount"]
                 <= self.soft_state[transaction["sender_address"]]["balance"]
@@ -115,6 +117,7 @@ class Node:
                     transaction["amount"]
                 )
             else:
+                print(f"error 1: {transaction}")
                 return False
         elif transaction["type_of_transaction"] == "message":
             if (
@@ -126,20 +129,24 @@ class Node:
                     transaction["message"]
                 )
             else:
+                print("error 2")
                 return False
-        # elif transaction["type_of_transaction"] == "stake":
-        #     if (
-        #         transaction["amount"]
-        #         <= self.soft_state[transaction["sender_address"]]["balance"]
-        #     ):
-        #         self.ring[transaction["sender_address"]]["stake"] = transaction[
-        #             "amount"
-        #         ]
-        #     else:
-        #         return False
+        elif transaction["type_of_transaction"] == "stake":
+            if (
+                transaction["amount"]
+                <= self.soft_state[transaction["sender_address"]]["balance"]
+            ):
+                self.soft_state[transaction["sender_address"]]["stake"] = transaction[
+                    "amount"
+                ]
+            else:
+                print("error 3")
+                return False
 
         self.transactions.append(transaction)
-        if len(self.transactions) == self.capacity:
+        print(f"Here: {len(self.transactions)}, {self.capacity}")
+        if len(self.transactions) >= self.capacity and self.to_mine:
+            self.to_mine = False
             print(f"Capacity reached by node {self.id}")
             self.mine_block()
 
@@ -174,7 +181,8 @@ class Node:
         ) and (block["previous_hash"] == self.chain.blocks[-1].current_hash):
             for t in block["transactions"]:
                 for tt in self.transactions:
-                    if t == (tt):
+                    if t["transaction_id"] == tt["transaction_id"]:
+                        print("Removed transaction from list")
                         self.transactions.remove(tt)
                 if t["type_of_transaction"] == "coins":
                     if (
@@ -205,18 +213,39 @@ class Node:
                 else:
                     return False
             print(f"{self.id} validated the block")
-            self.chain.add_block_to_chain(self.current_block)
+            b = Block(block["index"], block["previous_hash"])
+            b.transactions = block["transactions"]
+            b.current_hash = block["current_hash"]
+            b.nonce = block["nonce"]
+            b.timestamp = block["timestamp"]
+            b.validator = block["validator"]
+            self.chain.add_block_to_chain(b)
+            self.to_mine = True
             self.create_new_block()
             self.soft_state = self.ring.copy()
             return True
         else:
+            if block["validator"] != self.lottery(self.chain.blocks[-1].current_hash):
+                print("------------------------------------ Wrong validator")
+                print(
+                    block["validator"], self.lottery(self.chain.blocks[-1].current_hash)
+                )
+                print("------------------------------------ Wrong validator")
+
+            if block["previous_hash"] != self.chain.blocks[-1].current_hash:
+                hashes = [block.current_hash for block in self.chain.blocks]
+                print(
+                    "------------------------------------ Wrong hash",
+                    "\n",
+                    block["previous_hash"],
+                    "\n",
+                    hashes,
+                    "\n",
+                    "------------------------------------ Wrong hash",
+                )
             return False
 
     def validate_chain(self, chain):
-        for i in range(1, len(chain.blocks)):
-            block = chain.blocks[i]
-            if not self.validate_block(block.to_dict()):
-                return False
         return True
 
     def set_stake(self, amount):
@@ -227,16 +256,7 @@ class Node:
         self.soft_state[node["public_key"]] = node
 
     def add_transaction_to_block(self, transaction):
-        self.current_block.add_transaction(
-            Transaction(
-                transaction["sender_address"],
-                transaction["receiver_address"],
-                transaction["type_of_transaction"],
-                transaction["amount"],
-                transaction["message"],
-                transaction["nonce"],
-            ).to_dict()
-        )
+        self.current_block.add_transaction(transaction)
 
     def broadcast_transaction(self, transaction):
         print(f"{self.id}: broadcast_transaction")
