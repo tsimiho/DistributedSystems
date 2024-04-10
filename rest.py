@@ -1,7 +1,8 @@
+import copy
 import pickle
+import time
 from argparse import ArgumentParser, ArgumentTypeError
 from threading import Thread
-import time
 
 import requests
 from flask import Flask, jsonify, render_template, request
@@ -42,6 +43,7 @@ def add_node():
         print(
             f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
         )
+
     return {"id": node_id}
 
 
@@ -52,25 +54,24 @@ def start():
         id_dict[str(n["id"])] = n["public_key"]
 
     counter = 0
-    with open(file_path, "r") as file:
-        for line in file:
-            parts = line.split(" ", 1)
-            id_num = int(parts[0][2:])
-            message = parts[1].strip()
-            if id_num <= len(id_dict.items()) - 1:
-                node.create_transaction(
-                    node.wallet.public_key,
-                    id_dict[str(id_num)],
-                    "message",
-                    None,
-                    message,
-                )
-            counter += 1
-            if counter == 20:
-                return
+    # with open(file_path, "r") as file:
+    #     for line in file:
+    #         parts = line.split(" ", 1)
+    #         id_num = int(parts[0][2:])
+    #         message = parts[1].strip()
+    #         if id_num <= len(id_dict.items()) - 1:
+    #             node.create_transaction(
+    #                 node.wallet.public_key,
+    #                 id_dict[str(id_num)],
+    #                 "message",
+    #                 None,
+    #                 message,
+    #             )
+    #         counter += 1
+    #         if counter == 20:
+    #             return
 
 
-# Endpoint to start the proccess of reading from the input file
 @app.route("/start_proccess", methods=["POST"])
 def start_proccess_endpoint():
     start()
@@ -100,8 +101,8 @@ def receive_block_endpoint():
 @app.route("/receive_ring", methods=["POST"])
 def receive_ring_endpoint():
     new_ring = request.json.get("ring")
-    node.ring = new_ring
-    node.soft_state = new_ring
+    node.ring = copy.deepcopy(new_ring)
+    node.soft_state = copy.deepcopy(new_ring)
     return jsonify({"message": "Ring received"}), 200
 
 
@@ -109,7 +110,7 @@ def receive_ring_endpoint():
 def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
     # TODO: validate chain
-    node.chain = new_chain
+    node.chain = copy.deepcopy(new_chain)
     print(f"Node {node.id} received chain: {node.chain}")
     node.current_block.previous_hash = node.chain.blocks[-1].current_hash
     return jsonify({"message": "Chain received"}), 200
@@ -273,7 +274,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--capacity",
-        default=10,
+        default=4,
         help="capacity",
     )
 
@@ -319,12 +320,14 @@ if __name__ == "__main__":
         node.wallet.transactions.append(first_transaction)
 
         node.chain.add_block_to_chain(genesis)
+        node.create_new_block()
 
         app.run(host="127.0.0.1", port=port)
 
     else:
         node.ip_address = "127.0.0.1"
         node.port = port
+        node.number_of_nodes = total_nodes
         node.stake = args.stake
         node.capacity = args.capacity
 
