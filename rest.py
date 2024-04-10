@@ -5,7 +5,7 @@ from argparse import ArgumentParser, ArgumentTypeError
 from threading import Thread
 
 import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 import blockchain
@@ -40,20 +40,22 @@ def add_node():
                     amount=1000,
                     message="",
                 )
-        print(
-            f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
-        )
+        # print(
+        #     f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
+        # )
 
     return {"id": node_id}
 
 
 def start():
     file_path = f"input/trans{node.id}.txt"
+    # print(f"Reading from file {file_path}")
     id_dict = {}
     for _, n in node.ring.items():
         id_dict[str(n["id"])] = n["public_key"]
 
     counter = 0
+    node.node_start_time = time.time()
     with open(file_path, "r") as file:
         for line in file:
             parts = line.split(" ", 1)
@@ -69,7 +71,15 @@ def start():
                 )
             counter += 1
             if counter == 20:
-                return
+                break
+
+    time.sleep(10)
+    l = []
+    for _, t in node.throughput_individual.items():
+        l.append(t)
+    print(f"Node {node.id}: {node.node_start_time}, {node.node_finish_time}")
+    print(f"Node {node.id} throughput: {sum(l)/len(l)}")
+    return
 
 
 @app.route("/start_proccess", methods=["POST"])
@@ -87,14 +97,14 @@ def receive_transaction_endpoint():
 
 @app.route("/receive_block", methods=["POST"])
 def receive_block_endpoint():
-    print(f"{node.id} received block")
+    # print(f"{node.id} received block")
     new_block = request.json.get("block")
     if node.validate_block(copy.deepcopy(new_block)):
         return jsonify({"message": "Block added"}), 200
     else:
-        print(
-            f"{node.id} failed to validate block. Chain length: {len(node.chain.blocks)}"
-        )
+        # print(
+        #     f"{node.id} failed to validate block. Chain length: {len(node.chain.blocks)}"
+        # )
         return jsonify({"message": "Block could not be added"}), 401
 
 
@@ -111,7 +121,7 @@ def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
     if node.validate_chain(new_chain):
         node.chain = copy.deepcopy(new_chain)
-        print(f"Node {node.id} received chain: {node.chain}")
+        # print(f"Node {node.id} received chain: {node.chain}")
         node.current_block.previous_hash = node.chain.blocks[-1].current_hash
         return jsonify({"message": "Chain received"}), 200
     else:
@@ -276,7 +286,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--capacity",
-        default=10,
+        default=5,
         help="capacity",
     )
 
@@ -294,7 +304,7 @@ if __name__ == "__main__":
 
     if bootstrap_node:
         blockchain = blockchain.Blockchain()
-        print("Created blockchain")
+        # print("Created blockchain")
         node.chain = blockchain
         node.id = 0
         node.number_of_nodes = total_nodes
@@ -337,14 +347,13 @@ if __name__ == "__main__":
             url = f"http://127.0.0.1:5000/add_node"
             try:
                 res = requests.post(url, json={"register_node": node.to_dict()})
-                if res.status_code == 200:
-                    print("Node initialized")
+                # if res.status_code == 200:
+                # print("Node initialized")
 
                 node.id = res.json()["id"]
-                time.sleep(5)
                 if node.id == total_nodes - 1:
                     node.start_proccess()
-                    start()
+                    # start()
             except Exception as e:
                 print(f"Failed : {e}")
 

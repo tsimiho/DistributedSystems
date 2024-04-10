@@ -1,4 +1,5 @@
 import base64
+import time
 import hashlib
 import pickle
 import random
@@ -45,6 +46,16 @@ class Node:
         self.port = port
         self.capacity = capacity
         self.to_mine = True
+        self.transactions_lock = Lock()
+        self.soft_state_lock = Lock()
+        self.ring_lock = Lock()
+        self.block_lock = Lock()
+        self.chain_lock = Lock()
+        self.mine_lock = Lock()
+        self.throughput_individual = {}
+        self.block_time = {}
+        self.node_start_time = None
+        self.node_finish_time = None
 
     def to_dict(self):
         return {
@@ -58,23 +69,28 @@ class Node:
 
     def create_new_block(self):
         if len(self.chain.blocks) == 0:
-            print("Create new block")
+            # print("Create new block")
             new_idx = 0
             previous_hash = 1
+            # self.block_lock.acquire()
             self.current_block = Block(new_idx, previous_hash)
             self.current_block.create_hash()
-            print("Created block")
+            # self.block_lock.release()
+            # print("Created block")
         else:
             new_idx = len(self.chain.blocks)
             previous_hash = self.chain.blocks[-1].current_hash
+            # self.block_lock.acquire()
             self.current_block = Block(new_idx, previous_hash)
             self.current_block.create_hash()
+            # self.block_lock.release()
         return self.current_block
 
     def create_transaction(
         self, sender_address, receiver_address, type_of_transaction, amount, message
     ):
         self.nonce += 1
+        self.throughput_individual[str(self.nonce)] = time.time()
         transaction = Transaction(
             sender_address,
             receiver_address,
@@ -103,8 +119,9 @@ class Node:
         if not verify:
             return False
 
+        # self.soft_state_lock.acquire()
         if transaction["type_of_transaction"] == "coins":
-            print(self.soft_state[transaction["sender_address"]]["balance"])
+            # print(self.soft_state[transaction["sender_address"]]["balance"])
             if (
                 1.03 * transaction["amount"]
                 <= self.soft_state[transaction["sender_address"]]["balance"]
@@ -117,7 +134,7 @@ class Node:
                     transaction["amount"]
                 )
             else:
-                print(f"error 1: {transaction}")
+                # print(f"error 1: {transaction}")
                 return False
         elif transaction["type_of_transaction"] == "message":
             if (
@@ -129,7 +146,7 @@ class Node:
                     transaction["message"]
                 )
             else:
-                print("error 2")
+                # print("error 2")
                 return False
         elif transaction["type_of_transaction"] == "stake":
             if (
@@ -140,14 +157,20 @@ class Node:
                     "amount"
                 ]
             else:
-                print("error 3")
+                # print("error 3")
                 return False
+        # self.soft_state_lock.release()
 
+        self.node_finish_time = time.time()
+        # self.transactions_lock.acquire()
         self.transactions.append(transaction)
-        print(f"Here: {len(self.transactions)}, {self.capacity}")
+        # self.transactions_lock.release()
+        # print(f"Here: {len(self.transactions)}, {self.capacity}")
         if len(self.transactions) >= self.capacity and self.to_mine:
+            # self.mine_lock.acquire()
             self.to_mine = False
-            print(f"Capacity reached by node {self.id}")
+            # self.mine_lock.release()
+            # print(f"Capacity reached by node {self.id}")
             self.mine_block()
 
     def lottery(self, hash):
@@ -162,16 +185,18 @@ class Node:
         return selected_validator_pubkey
 
     def mine_block(self):
-        print("Mine block")
+        # print("Mine block")
         prev_hash = self.chain.blocks[-1].current_hash
         validator_key = self.lottery(prev_hash)
-        print(
-            f"Node chosen for validation of block: {self.soft_state[validator_key]['id']}"
-        )
+        # print(
+        #     f"Node chosen for validation of block: {self.soft_state[validator_key]['id']}"
+        # )
         if self.wallet.public_key == validator_key:
+            # self.block_lock.acquire()
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
             self.current_block.validator = validator_key
+            # self.block_lock.release()
             self.broadcast_block(self.current_block)
             self.validate_block(self.current_block.to_dict())
 
@@ -180,10 +205,13 @@ class Node:
             block["validator"] == self.lottery(self.chain.blocks[-1].current_hash)
         ) and (block["previous_hash"] == self.chain.blocks[-1].current_hash):
             for t in block["transactions"]:
+                # self.transactions_lock.acquire()
                 for tt in self.transactions:
                     if t["transaction_id"] == tt["transaction_id"]:
-                        print("Removed transaction from list")
+                        # print("Removed transaction from list")
                         self.transactions.remove(tt)
+                # self.transactions_lock.release()
+                # self.ring_lock.acquire()
                 if t["type_of_transaction"] == "coins":
                     if (
                         1.03 * t["amount"]
@@ -212,37 +240,52 @@ class Node:
                         return False
                 else:
                     return False
-            print(f"{self.id} validated the block")
+                # self.ring_lock.release()
+
+            # print(f"{self.id} validated the block")
             b = Block(block["index"], block["previous_hash"])
             b.transactions = block["transactions"]
             b.current_hash = block["current_hash"]
             b.nonce = block["nonce"]
             b.timestamp = block["timestamp"]
             b.validator = block["validator"]
+            # self.chain_lock.acquire()
             self.chain.add_block_to_chain(b)
-            self.to_mine = True
+            # self.chain_lock.release()
+            ct = time.time()
+            for t in block["transactions"]:
+                if t["sender_address"] == self.wallet.public_key:
+                    t_time = self.throughput_individual[str(t["nonce"])]
+                    self.throughput_individual[str(t["nonce"])] = ct - t_time
             self.create_new_block()
+            # self.soft_state_lock.acquire()
             self.soft_state = self.ring.copy()
+            # self.soft_state_lock.release()
+            if len(self.transactions) >= self.capacity:
+                self.mine_block()
+            # self.mine_lock.acquire()
+            self.to_mine = True
+            # self.mine_lock.release()
             return True
         else:
-            if block["validator"] != self.lottery(self.chain.blocks[-1].current_hash):
-                print("------------------------------------ Wrong validator")
-                print(
-                    block["validator"], self.lottery(self.chain.blocks[-1].current_hash)
-                )
-                print("------------------------------------ Wrong validator")
-
-            if block["previous_hash"] != self.chain.blocks[-1].current_hash:
-                hashes = [block.current_hash for block in self.chain.blocks]
-                print(
-                    "------------------------------------ Wrong hash",
-                    "\n",
-                    block["previous_hash"],
-                    "\n",
-                    hashes,
-                    "\n",
-                    "------------------------------------ Wrong hash",
-                )
+            # if block["validator"] != self.lottery(self.chain.blocks[-1].current_hash):
+            #     print("------------------------------------ Wrong validator")
+            #     print(
+            #         block["validator"], self.lottery(self.chain.blocks[-1].current_hash)
+            #     )
+            #     print("------------------------------------ Wrong validator")
+            #
+            # if block["previous_hash"] != self.chain.blocks[-1].current_hash:
+            #     hashes = [block.current_hash for block in self.chain.blocks]
+            #     print(
+            #         "------------------------------------ Wrong hash",
+            #         "\n",
+            #         block["previous_hash"],
+            #         "\n",
+            #         hashes,
+            #         "\n",
+            #         "------------------------------------ Wrong hash",
+            #     )
             return False
 
     def validate_chain(self, chain):
@@ -259,7 +302,7 @@ class Node:
         self.current_block.add_transaction(transaction)
 
     def broadcast_transaction(self, transaction):
-        print(f"{self.id}: broadcast_transaction")
+        # print(f"{self.id}: broadcast_transaction")
 
         lock = Lock()
 
@@ -289,7 +332,7 @@ class Node:
             pass
 
     def broadcast_block(self, block):
-        print(f"{self.id}: broadcast_block")
+        # print(f"{self.id}: broadcast_block")
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
@@ -314,7 +357,7 @@ class Node:
             pass
 
     def broadcast_ring(self):
-        print("broadcast_ring")
+        # print("broadcast_ring")
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
@@ -336,7 +379,7 @@ class Node:
             thread.join()
 
     def broadcast_chain(self):
-        print("broadcast_chain")
+        # print("broadcast_chain")
 
         def thread_target(node, responses):
             if node["public_key"] != self.wallet.public_key:
@@ -358,16 +401,15 @@ class Node:
             thread.join()
 
     def start_proccess(self):
-        print("Starting proccess")
+        # print("Starting proccess")
 
         def thread_target(node, responses):
-            if node["public_key"] != self.wallet.public_key:
-                url = f"http://{node['ip']}:{node['port']}/start_proccess"
-                try:
-                    res = requests.post(url)
-                    responses.append(res.status_code == 200)
-                except Exception as e:
-                    print(f"Failed to start proccess: {e}")
+            url = f"http://{node['ip']}:{node['port']}/start_proccess"
+            try:
+                res = requests.post(url)
+                responses.append(res.status_code == 200)
+            except Exception as e:
+                print(f"Failed to start proccess: {e}")
 
         threads = []
         responses = []
