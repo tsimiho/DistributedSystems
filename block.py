@@ -1,10 +1,7 @@
 import json
 import time
-from collections import OrderedDict
 
 from Crypto.Hash import SHA
-
-import blockchain
 
 
 class Block:
@@ -30,11 +27,11 @@ class Block:
             ],
         }
 
-    def myHash(self):
+    def create_hash(self):
         block_dict = self.to_dict()
         del block_dict["current_hash"]
         block_string = json.dumps(block_dict, sort_keys=True)
-        return SHA.new(block_string.encode()).hexdigest()
+        self.current_hash = SHA.new(block_string.encode()).hexdigest()
 
     def add_transaction(self, transaction):
         self.transactions.append(transaction)

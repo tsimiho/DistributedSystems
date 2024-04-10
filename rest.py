@@ -39,7 +39,9 @@ def add_node():
                     amount=1000,
                     message="",
                 )
-        print(f"{node.ring[node.wallet.public_key]["id"]} has {node.ring[node.wallet.public_key]["balance"]}")
+        print(
+            f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
+        )
     return {"id": node_id}
 
 
@@ -52,7 +54,6 @@ def start():
     counter = 0
     with open(file_path, "r") as file:
         for line in file:
-            # print(f"{node.id}: {line}")
             parts = line.split(" ", 1)
             id_num = int(parts[0][2:])
             message = parts[1].strip()
@@ -66,7 +67,6 @@ def start():
                 )
             counter += 1
             if counter == 20:
-                print(node.chain.blocks)
                 return
 
 
@@ -91,6 +91,9 @@ def receive_block_endpoint():
     if node.validate_block(new_block):
         return jsonify({"message": "Block added"}), 200
     else:
+        print(
+            f"{node.id} failed to validate block. Chain length: {len(node.chain.blocks)}"
+        )
         return jsonify({"message": "Block could not be added"}), 401
 
 
@@ -107,7 +110,8 @@ def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
     # TODO: validate chain
     node.chain = new_chain
-    print(f"Received chain: {node.chain}")
+    print(f"Node {node.id} received chain: {node.chain}")
+    node.current_block.previous_hash = node.chain.blocks[-1].current_hash
     return jsonify({"message": "Chain received"}), 200
 
 
@@ -158,94 +162,93 @@ def cli():
     return jsonify({"message": "CLI request received"}), 200
 
 
-##############################################################################################
-# Starting page
-@app.route("/", methods=["GET"])
-def start_page():
-    button_blocks = '<form action="/blocks/get" method="get"><button type="submit">View Blocks</button></form>'
-    button_create_trans = '<form action="/transaction" method="get"><button type="submit">Create Transaction</button></form>'
-    return "Blockchain Application" + button_blocks + button_create_trans
+# ##############################################################################################
+# # Starting page
+# @app.route("/", methods=["GET"])
+# def start_page():
+#     button_blocks = '<form action="/blocks/get" method="get"><button type="submit">View Blocks</button></form>'
+#     button_create_trans = '<form action="/transaction" method="get"><button type="submit">Create Transaction</button></form>'
+#     return "Blockchain Application" + button_blocks + button_create_trans
+#
+#
+# # get all blocks in the blockchain
+# @app.route("/blocks/get", methods=["GET"])
+# def get_blocks():
+#     # blocks = blockchain.blocks
+#     # blocks_json = []
+#     # for block in blocks:
+#     #     block_dict = {
+#     #         "index": block.index,
+#     #         "previous_hash": block.previous_hash,
+#     #         "timestamp": block.timestamp,
+#     #         "transactions": [vars(tx) for tx in block.transactions],
+#     #         "nonce": block.nonce,
+#     #         "validator": block.validator,
+#     #         "current_hash": block.current_hash,
+#     #         "capacity": block.capacity,
+#     #     }
+#     # blocks_json.append(block_dict)
+#     blocks_json = node.chain.to_dict()
+#     response = {"blocks": blocks_json}
+#     return jsonify(response), 200
+#
+#
+# # page to create transaction
+# @app.route("/transaction/", methods=["GET"])
+# def transaction_page():
+#     return render_template("transaction_form.html")
+#
+#
+# # endpoint to create transaction
+# @app.route("/transaction/create_transaction", methods=["POST"])
+# def create_transaction():
+#     # Get input arguments:
+#     # id of the sender node
+#     # id of the receiver node
+#     # the amount of BCCs to send
+#     # the message to send
+#     # # the type of transaction
+#     # sender_public_key = int(request.form.get("sender"))
+#     receiver_public_key = str(request.form.get("receiver"))
+#     if request.form.get("amount") == "":
+#         amount = 0
+#     else:
+#         amount = int(request.form.get("amount"))
+#     message = str(request.form.get("message"))
+#     type_of_transaction = str(request.form.get("type"))
+#     print("Type of transaction", type_of_transaction)
+#     if node.create_transaction(
+#         node.wallet.public_key,
+#         receiver_public_key,
+#         type_of_transaction,
+#         amount,
+#         message,
+#     ):
+#         return (
+#             jsonify(
+#                 {
+#                     "message": "The transaction was successful.",
+#                     "balance": node.balance,
+#                     "sender_public_key": node.wallet.public_key,
+#                 }
+#             ),
+#             200,
+#         )
+#     else:
+#         return (
+#             jsonify({"message": "Not enough BCCs.", "balance": node.balance}),
+#             400,
+#         )
+#
+#
+# # get all transactions in specific block
+# @app.route("/blocks/transactions/get", methods=["GET"])
+# def get_transactions():
+#     blocks = blockchain.blocks
+#     response = {"blocks": blocks}
+#     return jsonify(response), 200
 
 
-# get all blocks in the blockchain
-@app.route("/blocks/get", methods=["GET"])
-def get_blocks():
-    # blocks = blockchain.blocks
-    # blocks_json = []
-    # for block in blocks:
-    #     block_dict = {
-    #         "index": block.index,
-    #         "previous_hash": block.previous_hash,
-    #         "timestamp": block.timestamp,
-    #         "transactions": [vars(tx) for tx in block.transactions],
-    #         "nonce": block.nonce,
-    #         "validator": block.validator,
-    #         "current_hash": block.current_hash,
-    #         "capacity": block.capacity,
-    #     }
-    # blocks_json.append(block_dict)
-    blocks_json = node.chain.to_dict()
-    response = {"blocks": blocks_json}
-    return jsonify(response), 200
-
-
-# page to create transaction
-@app.route("/transaction/", methods=["GET"])
-def transaction_page():
-    return render_template("transaction_form.html")
-
-
-# endpoint to create transaction
-@app.route("/transaction/create_transaction", methods=["POST"])
-def create_transaction():
-    # Get input arguments:
-    # id of the sender node
-    # id of the receiver node
-    # the amount of BCCs to send
-    # the message to send
-    # # the type of transaction
-    # sender_public_key = int(request.form.get("sender"))
-    receiver_public_key = str(request.form.get("receiver"))
-    if request.form.get("amount") == "":
-        amount = 0
-    else:
-        amount = int(request.form.get("amount"))
-    message = str(request.form.get("message"))
-    type_of_transaction = str(request.form.get("type"))
-    print("Type of transaction", type_of_transaction)
-    if node.create_transaction(
-        node.wallet.public_key,
-        receiver_public_key,
-        type_of_transaction,
-        amount,
-        message,
-    ):
-        return (
-            jsonify(
-                {
-                    "message": "The transaction was successful.",
-                    "balance": node.balance,
-                    "sender_public_key": node.wallet.public_key,
-                }
-            ),
-            200,
-        )
-    else:
-        return (
-            jsonify({"message": "Not enough BCCs.", "balance": node.balance}),
-            400,
-        )
-
-
-# get all transactions in specific block
-@app.route("/blocks/transactions/get", methods=["GET"])
-def get_transactions():
-    blocks = blockchain.blocks
-    response = {"blocks": blocks}
-    return jsonify(response), 200
-
-
-# run it once fore every node
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument(
@@ -299,6 +302,7 @@ if __name__ == "__main__":
         node.capacity = args.capacity
 
         node.ring[node.wallet.public_key] = node.to_dict()
+        node.soft_state[node.wallet.public_key] = node.to_dict()
 
         genesis = node.create_new_block()
 
@@ -311,7 +315,6 @@ if __name__ == "__main__":
             nonce=0,
         )
 
-        genesis.current_hash = genesis.myHash()
         genesis.transactions.append(first_transaction)
         node.wallet.transactions.append(first_transaction)
 
@@ -333,7 +336,6 @@ if __name__ == "__main__":
                     print("Node initialized")
 
                 node.id = res.json()["id"]
-                print(node.id)
                 time.sleep(5)
                 if node.id == total_nodes - 1:
                     node.start_proccess()
