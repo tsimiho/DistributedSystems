@@ -76,6 +76,7 @@ class Node:
         )
         transaction.sign_transaction(self.wallet.private_key)
         self.broadcast_transaction(transaction)
+        # self.validate_transaction(transaction.to_dict())
 
         return True
 
@@ -102,13 +103,18 @@ class Node:
                 self.soft_state[transaction["sender_address"]]["balance"] -= (
                     1.03 * transaction["amount"]
                 )
+                self.ring[transaction["sender_address"]]["balance"] -= transaction[
+                    "amount"
+                ]
                 self.soft_state[transaction["receiver_address"]]["balance"] += (
                     transaction["amount"]
                 )
+                self.ring[transaction["receiver_address"]]["balance"] += transaction[
+                    "amount"
+                ]
             else:
                 return False
         elif transaction["type_of_transaction"] == "message":
-            print(f"{self.id} it's a message, node has balance: {self.balance}")
             if (
                 len(transaction["message"])
                 <= self.soft_state[transaction["sender_address"]]["balance"]
@@ -152,6 +158,7 @@ class Node:
         print("Mine block")
         prev_hash = self.chain.blocks[-1].current_hash
         validator_key = self.lottery(prev_hash)
+        print(f"Node chosen for validation of block: {self.soft_state[validator_key]["id"]}")
         if self.wallet.public_key == validator_key:
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
@@ -180,12 +187,9 @@ class Node:
                     else:
                         return False
                 elif t.type_of_transaction == "message":
-                    if (
-                        len(t.message)
-                        <= self.ring[t.sender_address].balance
-                        - self.ring[t.sender_address].stake
-                    ):
+                    if (len(t.message) <= self.ring[t.sender_address].balance - self.ring[t.sender_address].stake):
                         self.ring[t.sender_address].balance -= len(t.message)
+                        print("Here")
                         self.ring[block["validator"]].balance += len(t.message)
                     else:
                         return False
@@ -196,6 +200,7 @@ class Node:
                         return False
                 else:
                     return False
+            print(f"{self.id} validated the block")
             index = len(self.chain.blocks)
             current_hash = block.current_hash
             self.current_block = Block(index, current_hash)
@@ -330,6 +335,7 @@ class Node:
         for thread in threads:
             thread.join()
 
+    # Function called by last node inserted to ring in order to notify all the other nodes to start the proccess
     def start_proccess(self):
         print("Starting proccess")
 

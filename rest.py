@@ -39,6 +39,7 @@ def add_node():
                     amount=1000,
                     message="",
                 )
+        print(f"{node.ring[node.wallet.public_key]["id"]} has {node.ring[node.wallet.public_key]["balance"]}")
     return {"id": node_id}
 
 
@@ -49,23 +50,24 @@ def start():
         id_dict[str(n["id"])] = n["public_key"]
 
     counter = 0
-    # with open(file_path, "r") as file:
-    #     for line in file:
-    #         # print(f"{node.id}: {line}")
-    #         parts = line.split(" ", 1)
-    #         id_num = int(parts[0][2:])
-    #         message = parts[1].strip()
-    #         if id_num <= len(id_dict.items()) - 1:
-    #             node.create_transaction(
-    #                 node.wallet.public_key,
-    #                 id_dict[str(id_num)],
-    #                 "message",
-    #                 None,
-    #                 message,
-    #             )
-    #         counter += 1
-    #         if counter == 20:
-    #             return
+    with open(file_path, "r") as file:
+        for line in file:
+            # print(f"{node.id}: {line}")
+            parts = line.split(" ", 1)
+            id_num = int(parts[0][2:])
+            message = parts[1].strip()
+            if id_num <= len(id_dict.items()) - 1:
+                node.create_transaction(
+                    node.wallet.public_key,
+                    id_dict[str(id_num)],
+                    "message",
+                    None,
+                    message,
+                )
+            counter += 1
+            if counter == 20:
+                print(node.chain.blocks)
+                return
 
 
 # Endpoint to start the proccess of reading from the input file
