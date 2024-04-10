@@ -81,7 +81,7 @@ def start_proccess_endpoint():
 @app.route("/receive_transaction", methods=["POST"])
 def receive_transaction_endpoint():
     new_transaction = request.json.get("transaction")
-    node.validate_transaction(new_transaction)
+    node.validate_transaction(copy.deepcopy(new_transaction))
     return jsonify({"message": "Transaction received"}), 200
 
 
@@ -89,7 +89,7 @@ def receive_transaction_endpoint():
 def receive_block_endpoint():
     print(f"{node.id} received block")
     new_block = request.json.get("block")
-    if node.validate_block(new_block):
+    if node.validate_block(copy.deepcopy(new_block)):
         return jsonify({"message": "Block added"}), 200
     else:
         print(

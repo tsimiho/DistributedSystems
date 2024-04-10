@@ -22,9 +22,7 @@ class Block:
             "nonce": self.nonce,
             "validator": self.validator,
             "current_hash": self.current_hash,
-            "transactions": [
-                transaction.to_dict() for transaction in self.transactions
-            ],
+            "transactions": self.transactions,
         }
 
     def create_hash(self):

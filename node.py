@@ -165,8 +165,8 @@ class Node:
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
             self.current_block.validator = validator_key
-            self.validate_block(self.current_block.to_dict())
             self.broadcast_block(self.current_block)
+            self.validate_block(self.current_block.to_dict())
 
     def validate_block(self, block):
         if (
@@ -198,7 +198,7 @@ class Node:
                     else:
                         return False
                 elif t["type_of_transaction"] == "stake":
-                    if t.amount <= self.ring[t["sender_address"]]["balance"]:
+                    if t["amount"] <= self.ring[t["sender_address"]]["balance"]:
                         self.ring[t["sender_address"]]["stake"] = t["amount"]
                     else:
                         return False
@@ -210,21 +210,6 @@ class Node:
             self.soft_state = self.ring.copy()
             return True
         else:
-            if block["validator"] != self.lottery(self.chain.blocks[-1].current_hash):
-                print("------------------------------------ Wrong validator")
-
-            if block["previous_hash"] != self.chain.blocks[-1].current_hash:
-                hashes = [block.current_hash for block in self.chain.blocks]
-                print(
-                    "---",
-                    block["previous_hash"],
-                    "\n",
-                    hashes,
-                    "\n",
-                    "------------------------------------ Wrong hash",
-                    "\n",
-                    "---",
-                )
             return False
 
     def validate_chain(self, chain):
@@ -250,7 +235,7 @@ class Node:
                 transaction["amount"],
                 transaction["message"],
                 transaction["nonce"],
-            )
+            ).to_dict()
         )
 
     def broadcast_transaction(self, transaction):
