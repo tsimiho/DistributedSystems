@@ -23,15 +23,15 @@ def send_request(info):
 def transfer(args):
     if args.message.isdigit():
         info = {
-            "action": "transfer_coins",
-            "amount": args.message,
-            "address": args.recipient_address,
+            "action": "transaction_coins",
+            "amount": int(args.message),
+            "recipient_address": args.recipient_address,
         }
     else:
         info = {
-            "action": "transfer_message",
+            "action": "transaction_message",
             "amount": args.message,
-            "address": args.recipient_address,
+            "recipient_address": args.recipient_address,
         }
     send_request(info)
 
@@ -63,9 +63,7 @@ def help_command(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="CLI client for transactions, staking, and account management."
-    )
+    parser = argparse.ArgumentParser(description="CLI client")
     subparsers = parser.add_subparsers(help="commands")
 
     parser_t = subparsers.add_parser("t", help="Transfer coins or send a message")

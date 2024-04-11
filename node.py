@@ -56,6 +56,7 @@ class Node:
         self.block_time = {}
         self.node_start_time = None
         self.node_finish_time = None
+        self.block_time_list = []
 
     def to_dict(self):
         return {
@@ -258,6 +259,7 @@ class Node:
                     t_time = self.throughput_individual[str(t["nonce"])]
                     self.throughput_individual[str(t["nonce"])] = ct - t_time
             self.create_new_block()
+            self.block_time_list.append(ct - b.timestamp)
             # self.soft_state_lock.acquire()
             self.soft_state = self.ring.copy()
             # self.soft_state_lock.release()

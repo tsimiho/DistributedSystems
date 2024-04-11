@@ -18,7 +18,17 @@ if __name__ == "__main__":
 
         time.sleep(2)
 
-        configs = [(5001, "False"), (5002, "False"), (5003, "False"), (5004, "False")]
+        configs = [
+            (5001, "False"),
+            (5002, "False"),
+            (5003, "False"),
+            (5004, "False"),
+            # (5005, "False"),
+            # (5006, "False"),
+            # (5007, "False"),
+            # (5008, "False"),
+            # (5009, "False"),
+        ]
         for port, boolean in configs:
             p = multiprocessing.Process(target=run_script, args=(port, boolean))
             p.start()

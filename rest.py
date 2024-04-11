@@ -69,16 +69,18 @@ def start():
                     None,
                     message,
                 )
-            counter += 1
-            if counter == 20:
-                break
+            # counter += 1
+            # if counter == 20:
+            #     break
 
     time.sleep(10)
     l = []
     for _, t in node.throughput_individual.items():
         l.append(t)
     print(f"Node {node.id}: {node.node_start_time}, {node.node_finish_time}")
-    print(f"Node {node.id} throughput: {sum(l)/len(l)}")
+    print(
+        f"Node {node.id} mean block time: {sum(node.block_time_list)/len(node.block_time_list)}"
+    )
     return
 
 
@@ -157,7 +159,7 @@ def cli():
     elif info["action"] == "view":
         last_block = node.chain.blocks[-1]
         formatted_transactions = "\n".join(
-            [f"{str(t.to_dict())}" for t in last_block.transactions]
+            [f"{str(t)}" for t in last_block.transactions]
         )
         res = f"""
         Validator: {last_block.validator}
@@ -166,8 +168,7 @@ def cli():
         """
         return jsonify({"message": res}), 200
     elif info["action"] == "balance":
-        last_block = node.balance
-        res = str(node.balance)
+        res = str(node.ring[node.wallet.public_key]["balance"])
         return jsonify({"message": res}), 200
     else:
         return jsonify({"message": "Invalid CLI request"}), 200
