@@ -1,14 +1,9 @@
 import argparse
-import socket
 import requests
 
 
-hostname = socket.gethostname()
-IPAddr = socket.gethostbyname(hostname)
-url = f"http://{IPAddr}:5000/cli"
-
-
-def send_request(info):
+def send_request(info, sender_address):
+    url = f"http://127.0.0.1:{5000+int(sender_address)}/cli"
     try:
         res = requests.post(url, json={"info": info})
         if res.status_code == 200:
@@ -33,22 +28,22 @@ def transfer(args):
             "amount": args.message,
             "recipient_address": args.recipient_address,
         }
-    send_request(info)
+    send_request(info, args.sender_address)
 
 
 def stake(args):
     info = {"action": "stake", "amount": args.amount}
-    send_request(info)
+    send_request(info, args.sender_address)
 
 
 def view(args):
     info = {"action": "view"}
-    send_request(info)
+    send_request(info, args.sender_address)
 
 
 def balance(args):
     info = {"action": "balance"}
-    send_request(info)
+    send_request(info, args.sender_address)
 
 
 def help_command(args):
@@ -67,6 +62,7 @@ def main():
     subparsers = parser.add_subparsers(help="commands")
 
     parser_t = subparsers.add_parser("t", help="Transfer coins or send a message")
+    parser_t.add_argument("sender_address", type=str, help="Sender address")
     parser_t.add_argument("recipient_address", type=str, help="Recipient address")
     parser_t.add_argument(
         "message", type=str, help="Amount to transfer or message to send"
@@ -74,13 +70,16 @@ def main():
     parser_t.set_defaults(func=transfer)
 
     parser_stake = subparsers.add_parser("stake", help="Stake coins")
+    parser_stake.add_argument("sender_address", type=str, help="Sender address")
     parser_stake.add_argument("amount", type=int, help="Amount of coins to stake")
     parser_stake.set_defaults(func=stake)
 
     parser_view = subparsers.add_parser("view", help="View the ledger")
+    parser_view.add_argument("sender_address", type=str, help="Sender address")
     parser_view.set_defaults(func=view)
 
     parser_balance = subparsers.add_parser("balance", help="Check balance")
+    parser_balance.add_argument("sender_address", type=str, help="Sender address")
     parser_balance.set_defaults(func=balance)
 
     parser_help = subparsers.add_parser("help", help="Display help")
