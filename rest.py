@@ -31,8 +31,6 @@ def add_node():
         node.broadcast_ring()
         node.broadcast_chain()
 
-        time.sleep(3)
-
         for _, ring_node in node.ring.items():
             if ring_node["id"] != node.id:
                 node.create_transaction(
@@ -118,7 +116,7 @@ def receive_chain_endpoint():
     if node.validate_chain(new_chain):
         node.chain = copy.deepcopy(new_chain)
         # print(f"Node {node.id} received chain: {node.chain}")
-        node.current_block.previous_hash = node.chain.blocks[-1].current_hash
+        # node.current_block.previous_hash = node.chain.blocks[-1].current_hash
         return jsonify({"message": "Chain received"}), 200
     else:
         return jsonify({"message": "Chain could not be validated"}), 401
@@ -249,7 +247,7 @@ if __name__ == "__main__":
         node.wallet.transactions.append(first_transaction)
 
         node.chain.add_block_to_chain(genesis)
-        node.create_new_block()
+        # node.create_new_block()
 
         app.run(host="127.0.0.1", port=port)
 
@@ -259,6 +257,7 @@ if __name__ == "__main__":
         node.number_of_nodes = total_nodes
         node.stake = args.stake
         node.capacity = args.capacity
+        # node.create_new_block()
 
         def thread_target():
             url = f"http://127.0.0.1:5000/add_node"
@@ -269,7 +268,6 @@ if __name__ == "__main__":
 
                 node.id = res.json()["id"]
                 if node.id == total_nodes - 1:
-                    time.sleep(3)
                     node.start_proccess()
                     # start()
             except Exception as e:
