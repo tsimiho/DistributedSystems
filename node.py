@@ -1,4 +1,5 @@
 import base64
+import copy
 import hashlib
 import pickle
 import random
@@ -109,7 +110,6 @@ class Node:
 
         if not verify:
             return False
-
         if transaction["type_of_transaction"] == "coins":
             if (
                 1.03 * transaction["amount"]
@@ -123,6 +123,7 @@ class Node:
                     "balance"
                 ] += transaction["amount"]
             else:
+                print("1")
                 return False
         elif transaction["type_of_transaction"] == "message":
             if (
@@ -134,6 +135,7 @@ class Node:
                     transaction["message"]
                 )
             else:
+                print("1")
                 return False
         elif transaction["type_of_transaction"] == "stake":
             if (
@@ -144,6 +146,7 @@ class Node:
                     "amount"
                 ]
             else:
+                print("1")
                 return False
 
         self.node_finish_time = time.time()
@@ -152,6 +155,7 @@ class Node:
             with self.chain_lock:
                 self.to_change = False
             self.mine_block()
+        return True
 
     def lottery(self, hash):
         seed = int(hashlib.sha256(hash.encode()).hexdigest(), 16)
@@ -169,7 +173,6 @@ class Node:
         validator_key = self.lottery(prev_hash)
         if self.wallet.public_key == validator_key:
             self.create_new_block()
-            # with self.transactions_lock:
             for i in range(self.capacity):
                 self.add_transaction_to_block(self.transactions[i])
             self.current_block.validator = validator_key
@@ -202,7 +205,6 @@ class Node:
                         <= self.ring[t["sender_address"]]["balance"]
                         - self.ring[t["sender_address"]]["stake"]
                     ):
-                        print(len(t["message"]))
                         self.ring[t["sender_address"]]["balance"] -= len(t["message"])
                         self.ring[block["validator"]]["balance"] += len(t["message"])
                     else:
@@ -231,13 +233,6 @@ class Node:
             self.soft_state = self.ring.copy()
             self.balance = self.ring[self.wallet.public_key]["balance"]
             self.stake = self.ring[self.wallet.public_key]["stake"]
-            id_dict = {}
-            for _, n in self.ring.items():
-                id_dict[str(n["public_key"])] = n["id"]
-            l = [node["balance"] for _, node in self.ring.items()]
-            print(
-                f"Node {self.id} validated the block with validator {id_dict[block['validator']]}: {l}"
-            )
             with self.chain_lock:
                 self.to_change = True
             return True
@@ -322,7 +317,7 @@ class Node:
             if node["public_key"] != self.wallet.public_key:
                 url = f"http://{node['ip']}:{node['port']}/receive_ring"
                 try:
-                    res = requests.post(url, json={"ring": self.ring.copy()})
+                    res = requests.post(url, json={"ring": copy.deepcopy(self.ring)})
                     with lock:
                         responses.append(res.status_code == 200)
                 except Exception as e:

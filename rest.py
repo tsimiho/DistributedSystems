@@ -70,7 +70,7 @@ def start():
                     message,
                 )
             counter += 1
-            if counter == 20:
+            if counter == 10:
                 break
 
     return
@@ -85,8 +85,10 @@ def start_proccess_endpoint():
 @app.route("/receive_transaction", methods=["POST"])
 def receive_transaction_endpoint():
     new_transaction = request.json.get("transaction")
-    node.validate_transaction(copy.deepcopy(new_transaction))
-    return jsonify({"message": "Transaction received"}), 200
+    if node.validate_transaction(copy.deepcopy(new_transaction)):
+        return jsonify({"message": "Transaction received"}), 200
+    else:
+        return jsonify({"message": "Transaction could not be added"}), 401
 
 
 @app.route("/receive_block", methods=["POST"])
@@ -104,7 +106,7 @@ def receive_block_endpoint():
 
 @app.route("/receive_ring", methods=["POST"])
 def receive_ring_endpoint():
-    new_ring = request.json.get("ring")
+    new_ring = copy.deepcopy(request.json.get("ring"))
     node.ring = copy.deepcopy(new_ring)
     node.soft_state = copy.deepcopy(new_ring)
     return jsonify({"message": "Ring received"}), 200
