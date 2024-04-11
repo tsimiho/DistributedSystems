@@ -46,6 +46,28 @@ def balance(args):
     send_request(info, args.sender_address)
 
 
+def metrics(args):
+    info = {"action": "metrics"}
+    node_throughput = []
+    mean_block_time = []
+    for i in range(5):
+        url = f"http://127.0.0.1:{str(5000+i)}/cli"
+        try:
+            res = requests.post(url, json={"info": info})
+            if res.status_code == 200:
+                message = res.json()["message"]
+                node_throughput.append(message["node_start_time"])
+                node_throughput.append(message["node_finish_time"])
+                mean_block_time.append(message["mean_block_time"])
+                print(f"Node {i} balance: {float(message['balance'])}")
+            else:
+                print(f"Something went wrong: {res.status_code}")
+        except Exception as e:
+            print(f"Failed : {e}")
+    print(f"Throughput: {500/(max(node_throughput)-min(node_throughput))}")
+    print(f"Mean block time {sum(mean_block_time)/len(mean_block_time)}")
+
+
 def help_command(args):
     help = """
     - t <recipient_address> <amount>: transaction of <amount> coins from the sender's to the <recipient_address>'s wallet
@@ -84,6 +106,9 @@ def main():
 
     parser_help = subparsers.add_parser("help", help="Display help")
     parser_help.set_defaults(func=help_command)
+
+    parser_metrics = subparsers.add_parser("metrics", help="Compute metrics")
+    parser_metrics.set_defaults(func=metrics)
 
     args = parser.parse_args()
 
