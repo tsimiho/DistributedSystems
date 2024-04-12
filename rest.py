@@ -40,6 +40,7 @@ def add_node():
                     amount=1000,
                     message="",
                 )
+
         # print(
         #     f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
         # )
@@ -231,8 +232,10 @@ if __name__ == "__main__":
         node.stake = args.stake
         node.capacity = args.capacity
 
-        node.ring[node.wallet.public_key] = node.to_dict()
-        node.soft_state[node.wallet.public_key] = node.to_dict()
+        node_dict = node.to_dict()
+
+        node.ring[node.wallet.public_key] = copy.deepcopy(node_dict)
+        node.soft_state[node.wallet.public_key] = copy.deepcopy(node_dict)
 
         genesis = node.create_new_block()
 

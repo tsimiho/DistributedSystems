@@ -119,9 +119,9 @@ class Node:
                 self.soft_state[transaction["sender_address"]]["balance"] -= (
                     1.03 * transaction["amount"]
                 )
-                self.soft_state[transaction["receiver_address"]][
-                    "balance"
-                ] += transaction["amount"]
+                self.soft_state[transaction["receiver_address"]]["balance"] += (
+                    transaction["amount"]
+                )
             else:
                 print("1")
                 return False
@@ -230,7 +230,7 @@ class Node:
                     t_time = self.throughput_individual[str(t["nonce"])]
                     self.throughput_individual[str(t["nonce"])] = ct - t_time
             self.block_time_list.append(ct - b.timestamp)
-            self.soft_state = self.ring.copy()
+            self.soft_state = copy.deepcopy(self.ring)
             self.balance = self.ring[self.wallet.public_key]["balance"]
             self.stake = self.ring[self.wallet.public_key]["stake"]
             with self.chain_lock:
