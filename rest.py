@@ -41,16 +41,11 @@ def add_node():
                     message="",
                 )
 
-        # print(
-        #     f"{node.ring[node.wallet.public_key]['id']} has {node.ring[node.wallet.public_key]['balance']}"
-        # )
-
     return {"id": node_id}
 
 
 def start():
     file_path = f"input/trans{node.id}.txt"
-    # print(f"Reading from file {file_path}")
     id_dict = {}
     for _, n in node.ring.items():
         id_dict[str(n["id"])] = n["public_key"]
@@ -71,7 +66,7 @@ def start():
                     message,
                 )
             counter += 1
-            if counter == 10:
+            if counter == 20:
                 break
 
     return
@@ -94,14 +89,10 @@ def receive_transaction_endpoint():
 
 @app.route("/receive_block", methods=["POST"])
 def receive_block_endpoint():
-    # print(f"{node.id} received block")
     new_block = request.json.get("block")
     if node.validate_block(copy.deepcopy(new_block)):
         return jsonify({"message": "Block added"}), 200
     else:
-        # print(
-        #     f"{node.id} failed to validate block. Chain length: {len(node.chain.blocks)}"
-        # )
         return jsonify({"message": "Block could not be added"}), 401
 
 
@@ -118,8 +109,6 @@ def receive_chain_endpoint():
     new_chain = pickle.loads(request.get_data())
     if node.validate_chain(new_chain):
         node.chain = copy.deepcopy(new_chain)
-        # print(f"Node {node.id} received chain: {node.chain}")
-        # node.current_block.previous_hash = node.chain.blocks[-1].current_hash
         return jsonify({"message": "Chain received"}), 200
     else:
         return jsonify({"message": "Chain could not be validated"}), 401
@@ -222,7 +211,6 @@ if __name__ == "__main__":
 
     if bootstrap_node:
         blockchain = blockchain.Blockchain()
-        # print("Created blockchain")
         node.chain = blockchain
         node.id = 0
         node.number_of_nodes = total_nodes
@@ -268,13 +256,11 @@ if __name__ == "__main__":
             url = f"http://127.0.0.1:5000/add_node"
             try:
                 res = requests.post(url, json={"register_node": node.to_dict()})
-                # if res.status_code == 200:
-                # print("Node initialized")
 
                 node.id = res.json()["id"]
                 if node.id == total_nodes - 1:
                     node.start_proccess()
-                    # start()
+                    start()
             except Exception as e:
                 print(f"Failed : {e}")
 

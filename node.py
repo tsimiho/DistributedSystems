@@ -123,7 +123,6 @@ class Node:
                     transaction["amount"]
                 )
             else:
-                print("1")
                 return False
         elif transaction["type_of_transaction"] == "message":
             if (
@@ -135,7 +134,6 @@ class Node:
                     transaction["message"]
                 )
             else:
-                print("1")
                 return False
         elif transaction["type_of_transaction"] == "stake":
             if (
@@ -146,7 +144,6 @@ class Node:
                     "amount"
                 ]
             else:
-                print("1")
                 return False
 
         self.node_finish_time = time.time()
@@ -281,8 +278,6 @@ class Node:
             pass
 
     def broadcast_block(self, block):
-        # print(f"{self.id}: broadcast_block")
-
         lock = Lock()
 
         def thread_target(node, responses):
@@ -309,8 +304,6 @@ class Node:
             pass
 
     def broadcast_ring(self):
-        # print("broadcast_ring")
-
         lock = Lock()
 
         def thread_target(node, responses):
@@ -334,8 +327,6 @@ class Node:
             thread.join()
 
     def broadcast_chain(self):
-        # print("broadcast_chain")
-
         lock = Lock()
 
         def thread_target(node, responses):
@@ -359,8 +350,6 @@ class Node:
             thread.join()
 
     def start_proccess(self):
-        # print("Starting proccess")
-
         def thread_target(node, responses):
             url = f"http://{node['ip']}:{node['port']}/start_proccess"
             try:
